@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CampusTix | Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#0f172a] text-slate-200 p-12">
+<div class="max-w-4xl mx-auto">
+    <header class="mb-12 flex justify-between items-center">
+        <h1 class="text-3xl font-bold text-indigo-400 uppercase tracking-tighter italic">Event Management</h1>
+        <a href="/" class="text-xs text-slate-500 hover:text-white transition-all underline">Back to Marketplace</a>
+    </header>
+
+    <div class="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 space-y-6 shadow-2xl">
+        <div class="space-y-4">
+            <label class="text-[10px] text-slate-500 uppercase font-black tracking-widest ml-1">General Details</label>
+            <input id="evName" type="text" placeholder="Event Name (e.g., Spring Concert)" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+            <input id="evImage" type="text" placeholder="Poster Image URL" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-4">
+                <label class="text-[10px] text-slate-500 uppercase font-black tracking-widest ml-1">Venue & Location</label>
+                <input id="evVenue" type="text" placeholder="Venue Name (e.g., Mullins Center)" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                <input id="evAddress" type="text" placeholder="Full Address (for Google Maps)" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+            </div>
+            <div class="space-y-4">
+                <label class="text-[10px] text-slate-500 uppercase font-black tracking-widest ml-1">Pricing & Inventory</label>
+                <input id="evPrice" type="number" placeholder="Ticket Price ($)" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                <input id="evSeats" type="number" placeholder="Total Seat Count" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col">
+                <label class="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2 ml-1">Event Start Time</label>
+                <input id="evStartTime" type="datetime-local" class="bg-slate-800 p-4 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div class="flex flex-col">
+                <label class="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2 ml-1">Event Expiry (End Date)</label>
+                <input id="evExpiryDate" type="datetime-local" class="bg-slate-800 p-4 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <label class="text-[10px] text-slate-500 uppercase font-black tracking-widest ml-1">Contact Information</label>
+            <input id="evContact" type="text" placeholder="Organizer Name & Phone/Email" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+        </div>
+
+        <button onclick="deploy()" class="w-full bg-indigo-600 p-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20 active:scale-[0.98]">
+            Publish Event & Generate Seats
+        </button>
+    </div>
+</div>
+
+<script>
+    async function deploy() {
+        // Collect all data from the form
+        const data = {
+        name: document.getElementById('evName').value,
+        venue: document.getElementById('evVenue').value,
+        venueAddress: document.getElementById('evAddress').value,
+        price: document.getElementById('evPrice').value,
+        imageUrl: document.getElementById('evImage').value,
+        contactInfo: document.getElementById('evContact').value,
+        eventTime: document.getElementById('evStartTime').value, // Use actual input
+        expiryDate: document.getElementById('evExpiryDate').value // Use actual input
+    };
+
+        const count = document.getElementById('evSeats').value;
+
+        // Validation: Ensure basic fields are filled
+        if (!data.name || !count || !data.eventTime) {
+            alert("Please fill in Event Name, Seat Count, and Start Time.");
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/v1/admin/events?seatCount=${count}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                alert("🚀 Event is now LIVE! Redirecting to Marketplace...");
+                window.location.href = "/";
+            } else {
+                const error = await response.text();
+                alert("Error: " + error);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Connection failed. Ensure the Spring Boot server is running.");
+        }
+    }
+</script>
+</body>
+</html>

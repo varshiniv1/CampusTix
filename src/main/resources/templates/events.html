@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CampusTix | Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-[#0b0f1a] text-slate-200 min-h-screen p-8">
+
+<div class="max-w-6xl mx-auto">
+    <header class="mb-16 flex justify-between items-end">
+        <div>
+            <p class="text-indigo-500 font-black uppercase tracking-[0.3em] text-xs mb-2">UMass Amherst</p>
+            <h1 class="text-6xl font-black text-white tracking-tighter uppercase italic">Live Events</h1>
+        </div>
+        <div class="flex gap-4">
+            <a href="/admin" class="text-[10px] font-bold border border-slate-800 px-6 py-3 rounded-full hover:bg-white hover:text-black transition-all tracking-widest">ADMIN PORTAL</a>
+        </div>
+    </header>
+
+    <div id="event-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div class="col-span-full text-center py-20">
+            <div class="animate-pulse text-slate-500 font-mono text-sm">Synchronizing with Event Stream...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function loadEvents() {
+        try {
+            // API call to fetch all events from the AdminController
+            const res = await fetch('/api/v1/admin/events/all');
+            const events = await res.json();
+            const container = document.getElementById('event-list');
+            container.innerHTML = '';
+
+            if (!events || events.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-20 border-2 border-dashed border-slate-800 rounded-[3rem]">
+                        <p class="text-slate-500 font-medium">No active events found in the database.</p>
+                        <p class="text-slate-600 text-xs mt-2">Use the Admin Portal to publish new events.</p>
+                    </div>`;
+                return;
+            }
+
+            events.forEach(ev => {
+                const now = new Date();
+                
+                // Expiry Logic: Fallback to +24 hours if expiryDate is missing
+                const expiry = ev.expiryDate ? new Date(ev.expiryDate) : new Date(now.getTime() + 86400000);
+                const isExpired = now > expiry;
+
+                // Time remaining calculation
+                const diffTime = expiry - now;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                let statusText = isExpired ? "EXPIRED" : `${diffDays} Days Left`;
+                if (!ev.expiryDate) statusText = "ONGOING";
+
+                // Dynamic HTML Injection with Tailwind Styles
+                container.innerHTML += `
+                <div class="group relative bg-slate-900 border border-slate-800 rounded-[2.5rem] overflow-hidden transition-all duration-500 shadow-2xl 
+                                     ${isExpired ? 'opacity-40 grayscale blur-[1px]' : 'hover:border-indigo-500'}">
+
+                    <div class="h-64 overflow-hidden relative">
+                        <img src="${ev.imageUrl || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4'}"
+                             class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                             alt="${ev.name}">
+
+                        <div class="absolute top-4 left-6 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black tracking-tighter 
+                                             ${isExpired ? 'text-red-500 border border-red-500/30' : 'text-green-400 border border-green-400/30'}">
+                            ${statusText}
+                        </div>
+                        
+                        <div class="absolute bottom-4 left-6">
+                            <span class="bg-indigo-600 px-3 py-1 rounded-full text-[10px] font-black uppercase text-white shadow-lg">
+                                $${ev.price}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="p-8">
+                        <p class="text-indigo-500 text-[10px] font-black uppercase tracking-widest mb-1">
+                            ${ev.eventTime ? new Date(ev.eventTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date TBD'}
+                        </p>
+                        <h3 class="text-2xl font-bold text-white mb-2 leading-tight tracking-tight">${ev.name}</h3>
+                        <p class="text-slate-500 text-xs mb-8 flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-600"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                            ${ev.venue}
+                        </p>
+                        
+                        ${isExpired ?
+                        `<button class="w-full py-4 rounded-2xl text-xs font-black bg-slate-800 text-slate-500 cursor-not-allowed uppercase tracking-widest">Closed</button>` :
+                        `<a href="/booking/${ev.id}" class="block text-center bg-white text-black py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-500 hover:text-white transition-all transform active:scale-95 shadow-xl shadow-white/5">Get Tickets</a>`
+                        }
+                    </div>
+                </div>`;
+            });
+        } catch (err) {
+            console.error("Dashboard error:", err);
+            document.getElementById('event-list').innerHTML = `
+                <div class="col-span-full text-center py-10 text-red-400 font-mono text-xs">
+                    [ERROR] Failed to fetch event stream. Check backend console.
+                </div>`;
+        }
+    }
+
+    // Initialize load on page ready
+    document.addEventListener('DOMContentLoaded', loadEvents);
+</script>
+
+</body>
+</html>

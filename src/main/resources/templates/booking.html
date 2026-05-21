@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>CampusTix | Reserve Your Seat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.0/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+</head>
+<body class="bg-[#0b0f1a] text-slate-200 min-h-screen">
+
+<div id="booking-container">
+    <div class="relative h-64 w-full overflow-hidden border-b border-slate-800">
+        <img id="event-hero-img" src="" class="w-full h-full object-cover opacity-40 blur-sm absolute">
+        <div class="relative z-10 max-w-7xl mx-auto px-6 h-full flex flex-col justify-center">
+            <h1 id="event-title" class="text-5xl font-black text-white tracking-tighter uppercase italic">Loading...</h1>
+            <p id="event-subtitle" class="text-indigo-400 font-bold tracking-widest uppercase text-sm mt-2"></p>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-6 py-10 grid grid-cols-12 gap-8">
+        <div class="col-span-12 lg:col-span-8">
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-white">Select Your Seat</h2>
+                    <div class="flex gap-4 text-[10px] uppercase font-bold tracking-widest">
+                        <span class="flex items-center gap-2"><div class="w-3 h-3 bg-slate-800 border border-slate-700 rounded"></div> Available</span>
+                        <span class="flex items-center gap-2"><div class="w-3 h-3 bg-red-900/40 border border-red-900/50 rounded"></div> Taken</span>
+                    </div>
+                </div>
+                <div id="stadium" class="grid grid-cols-10 gap-3 py-6"></div>
+            </div>
+        </div>
+
+        <div class="col-span-12 lg:col-span-4 space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
+                <h3 class="text-xs text-indigo-500 font-black uppercase tracking-widest mb-4">Venue Logistics</h3>
+                <p id="venue-address" class="text-slate-300 text-sm mb-4 italic"></p>
+                <a id="directions-btn" target="_blank" class="flex items-center justify-center gap-2 w-full bg-indigo-600 hover:bg-indigo-500 p-4 rounded-2xl text-xs font-black transition-all shadow-lg shadow-indigo-600/20">
+                    OPEN IN GOOGLE MAPS
+                </a>
+            </div>
+
+            <div class="bg-slate-950 border border-slate-800 rounded-3xl p-6 h-[400px] flex flex-col">
+                <h3 class="text-xs text-indigo-500 font-mono italic mb-4">> System Feed</h3>
+                <div id="logs" class="space-y-2 overflow-y-auto font-mono text-[10px] flex-grow"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="checkout-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] max-w-md w-full shadow-2xl">
+            <h3 class="text-2xl font-bold text-white mb-2">Complete Purchase</h3>
+            <p id="selected-seat-label" class="text-indigo-400 text-sm font-mono mb-6 uppercase tracking-widest"></p>
+
+            <div class="space-y-4">
+                <input id="form-email" type="email" placeholder="Email Address" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500">
+                <input id="form-name" type="text" placeholder="Full Name" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500">
+
+                <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                    <p class="text-[10px] text-slate-500 uppercase font-bold mb-2">Dummy Payment Card</p>
+                    <input type="text" placeholder="4242 4242 4242 4242" class="w-full bg-transparent outline-none text-sm font-mono tracking-widest text-indigo-300">
+                </div>
+
+                <button onclick="submitBooking()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl font-black uppercase transition-all shadow-xl shadow-indigo-600/20 active:scale-95">
+                    Confirm & Pay
+                </button>
+                <button onclick="closeModal()" class="w-full text-slate-500 text-xs font-bold uppercase tracking-widest mt-2 hover:text-white transition-all">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const EVENT_ID = /*[[${eventId}]]*/ 0;
+    let STUDENT_EMAIL = "";
+    let stompClient = null;
+    let currentSeatId = null;
+    let currentSeatName = "";
+
+    // 1. Initial Load: Fetch Event Metadata
+    async function loadEventDetails() {
+        try {
+            const res = await fetch(`/api/v1/admin/events/${EVENT_ID}`);
+            const ev = await res.json();
+
+            const isExpired = new Date() > new Date(ev.expiryDate);
+            if (isExpired) {
+                renderExpiredUI(ev.name);
+                return;
+            }
+
+            document.getElementById('event-title').innerText = ev.name;
+            document.getElementById('event-subtitle').innerText = `${ev.venue} // ${new Date(ev.eventTime).toLocaleString()}`;
+            document.getElementById('event-hero-img').src = ev.imageUrl || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4';
+            document.getElementById('venue-address').innerText = ev.venueAddress || "Address Pending";
+
+            const encodedAddress = encodeURIComponent(ev.venueAddress);
+            document.getElementById('directions-btn').href = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+
+            loadSeats();
+        } catch (error) {
+            console.error("Error loading event:", error);
+            addLog("System error: Could not load event data.", "text-red-500");
+        }
+    }
+
+    // 2. Real-time Connection via WebSockets
+    function connect() {
+        if (stompClient && stompClient.connected) return;
+
+        const socket = new SockJS('/ws-tickets');
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+        stompClient.connect({}, () => {
+            addLog(`WebSocket Connected: Listening for confirmation...`, "text-slate-500");
+
+            stompClient.subscribe(`/user/${STUDENT_EMAIL}/topic/status`, (msg) => {
+                addLog(msg.body, msg.body.includes("SUCCESS") ? "text-green-400" : "text-red-400");
+                loadSeats();
+            });
+
+            stompClient.subscribe('/topic/seats-update', () => loadSeats());
+        });
+    }
+
+    // 3. Load Stadium Map
+    async function loadSeats() {
+        const res = await fetch(`/api/v1/tickets/seats?eventId=${EVENT_ID}`);
+        const seats = await res.json();
+        const stadium = document.getElementById('stadium');
+        stadium.innerHTML = '';
+
+        seats.forEach(seat => {
+            const div = document.createElement('div');
+            const isSold = seat.status === 'SOLD';
+            div.className = `h-10 flex items-center justify-center rounded-lg text-[10px] font-bold cursor-pointer transition-all border
+                ${isSold ? 'bg-red-900/20 border-red-900/50 text-red-500 grayscale cursor-not-allowed' : 'bg-slate-800 border-slate-700 hover:border-indigo-500 text-slate-400'}`;
+            div.innerText = seat.seatNumber;
+
+            if(!isSold) {
+                div.onclick = () => openCheckout(seat.id, seat.seatNumber);
+            }
+            stadium.appendChild(div);
+        });
+    }
+
+    // 4. Modal Management
+    function openCheckout(id, name) {
+        currentSeatId = id;
+        currentSeatName = name;
+        document.getElementById('selected-seat-label').innerText = `SEAT: ${name}`;
+        document.getElementById('checkout-modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+        document.getElementById('checkout-modal').classList.add('hidden');
+    }
+
+    // 5. Submit Booking (Kafka Producer)
+    async function submitBooking() {
+        const email = document.getElementById('form-email').value;
+        const name = document.getElementById('form-name').value;
+
+        if(!email || !email.includes("@") || !name) {
+            alert("Please provide a valid name and email address.");
+            return;
+        }
+
+        STUDENT_EMAIL = email;
+        closeModal();
+        addLog(`Initiating secure payment for ${currentSeatName}...`, "text-indigo-400");
+
+        // Connect WS first so we don't miss the Kafka response
+        connect();
+
+        const res = await fetch(`/api/v1/tickets/claim?studentId=${email}&seatId=${currentSeatId}&studentName=${encodeURIComponent(name)}`, {
+            method: 'POST'
+        });
+
+        if (res.status === 429) {
+            addLog("Redis blocked: Rate limit exceeded (1 request/5s).", "text-orange-500");
+        } else if (res.ok) {
+            addLog("Payment Accepted. Processing Ticket via Kafka...", "text-green-400");
+        } else {
+            addLog("Request failed. Server is under heavy load.", "text-red-500");
+        }
+    }
+
+    // 6. Utility Functions
+    function addLog(text, color) {
+        const entry = document.createElement('div');
+        entry.className = `p-2 rounded bg-slate-900/50 border-l-2 border-slate-800 ${color}`;
+        entry.innerHTML = `<span class="opacity-30">[${new Date().toLocaleTimeString()}]</span> ${text}`;
+        const logBox = document.getElementById('logs');
+        logBox.prepend(entry);
+    }
+
+    function renderExpiredUI(eventName) {
+        document.getElementById('booking-container').innerHTML = `
+            <div class="h-screen flex flex-col items-center justify-center bg-[#0b0f1a] text-white p-10">
+                <div class="bg-red-500/10 border border-red-500/30 p-12 rounded-[3rem] text-center max-w-md shadow-2xl">
+                    <h1 class="text-4xl font-black text-red-500 mb-4 italic uppercase tracking-tighter">Event Expired</h1>
+                    <p class="text-slate-400 text-sm mb-8 leading-relaxed">Tickets for <b>${eventName}</b> are no longer available. This event has officially closed.</p>
+                    <a href="/" class="inline-block bg-white text-black px-10 py-4 rounded-2xl text-xs font-black uppercase hover:bg-indigo-500 hover:text-white transition-all shadow-xl shadow-white/5">Back to Marketplace</a>
+                </div>
+            </div>`;
+    }
+
+    loadEventDetails();
+</script>
+</body>
+</html>
