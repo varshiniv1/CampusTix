@@ -18,7 +18,6 @@ public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
 
     public AuthResponse register(RegisterRequest req) {
         if (userRepository.existsByEmail(req.getEmail())) {
@@ -31,7 +30,7 @@ public class UserService implements UserDetailsService {
                 .role("USER")
                 .build();
         userRepository.save(user);
-        return new AuthResponse(jwtService.generateToken(user.getEmail()), user.getName(), user.getEmail());
+        return new AuthResponse(user.getName(), user.getEmail());
     }
 
     public AuthResponse login(LoginRequest req) {
@@ -40,7 +39,7 @@ public class UserService implements UserDetailsService {
         if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
             throw new RuntimeException("Invalid email or password.");
         }
-        return new AuthResponse(jwtService.generateToken(user.getEmail()), user.getName(), user.getEmail());
+        return new AuthResponse(user.getName(), user.getEmail());
     }
 
     @Override
