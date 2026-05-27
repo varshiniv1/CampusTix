@@ -2,97 +2,279 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>CampusTix | Admin Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CampusTix | Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; }</style>
 </head>
-<body class="bg-[#0f172a] text-slate-200 p-12">
-<div class="max-w-4xl mx-auto">
-    <header class="mb-12 flex justify-between items-center">
-        <h1 class="text-3xl font-bold text-indigo-400 uppercase tracking-tighter italic">Event Management</h1>
-        <a href="/" class="text-xs text-slate-500 hover:text-white transition-all underline">Back to Marketplace</a>
-    </header>
+<body class="bg-[#06081C] text-white min-h-screen">
 
-    <div class="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 space-y-6 shadow-2xl">
-        <div class="space-y-4">
-            <label class="text-[10px] text-slate-500 uppercase font-black tracking-widest ml-1">General Details</label>
-            <input id="evName" type="text" placeholder="Event Name (e.g., Spring Concert)" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-            <input id="evImage" type="text" placeholder="Poster Image URL" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+<!-- Nav -->
+<nav class="sticky top-0 z-50 bg-[#06081C]/95 backdrop-blur-md border-b border-white/5">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+        <a href="/" class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-black text-sm">C</div>
+            <span class="text-lg font-black tracking-tight">Campus<span class="text-indigo-400">Tix</span></span>
+        </a>
+        <div class="flex items-center gap-3">
+            <span class="bg-amber-500/15 text-amber-400 border border-amber-500/20 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">Admin Portal</span>
+            <a href="/" class="text-sm text-slate-400 hover:text-white transition-colors">Marketplace</a>
+        </div>
+    </div>
+</nav>
+
+<div class="max-w-5xl mx-auto px-6 py-10">
+    <div class="mb-8">
+        <h1 class="text-3xl font-black tracking-tight mb-1">Create Event</h1>
+        <p class="text-slate-400 text-sm">Publish a new event and generate seats automatically.</p>
+    </div>
+
+    <!-- Success Toast -->
+    <div id="toast" class="hidden fixed top-6 right-6 z-[100] bg-green-500/15 border border-green-500/30 text-green-400 px-5 py-3 rounded-2xl text-sm font-semibold shadow-2xl backdrop-blur-sm">
+        Event published successfully!
+    </div>
+
+    <div class="grid grid-cols-12 gap-6">
+
+        <!-- Main Form -->
+        <div class="col-span-12 lg:col-span-8 space-y-5">
+
+            <!-- General Details -->
+            <div class="bg-[#0E1028] border border-white/8 rounded-3xl p-7">
+                <h2 class="text-xs text-slate-500 font-black uppercase tracking-widest mb-5">General Details</h2>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="col-span-2">
+                            <label class="text-xs text-slate-400 font-semibold block mb-1.5">Event Name *</label>
+                            <input id="evName" type="text" placeholder="e.g. Spring Concert 2025"
+                                class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500/60 focus:bg-white/8 transition-all placeholder-slate-600">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-400 font-semibold block mb-1.5">Category</label>
+                            <select id="evCategory" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500/60 transition-all text-slate-300 appearance-none">
+                                <option value="" class="bg-slate-900">Select category</option>
+                                <option value="MUSIC" class="bg-slate-900">🎵 Music</option>
+                                <option value="SPORTS" class="bg-slate-900">🏀 Sports</option>
+                                <option value="COMEDY" class="bg-slate-900">😂 Comedy</option>
+                                <option value="ARTS" class="bg-slate-900">🎭 Arts & Theater</option>
+                                <option value="FAMILY" class="bg-slate-900">👨‍👩‍👧 Family</option>
+                                <option value="OTHER" class="bg-slate-900">🎟️ Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-400 font-semibold block mb-1.5">Poster Image URL</label>
+                            <input id="evImage" type="url" placeholder="https://..."
+                                class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500/60 focus:bg-white/8 transition-all placeholder-slate-600">
+                        </div>
+                    </div>
+
+                    <!-- AI Description Generator -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="text-xs text-slate-400 font-semibold">Description</label>
+                            <button id="ai-btn" onclick="generateDescription()"
+                                class="flex items-center gap-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-400 hover:text-indigo-300 px-3 py-1 rounded-full text-[11px] font-bold transition-all">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                                Generate with AI
+                            </button>
+                        </div>
+                        <textarea id="evDescription" rows="3" placeholder="Describe your event... or use AI to generate it from the fields above."
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500/60 focus:bg-white/8 transition-all placeholder-slate-600 resize-none"></textarea>
+                        <p id="ai-status" class="text-xs text-indigo-400 mt-1 hidden"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Venue & Pricing -->
+            <div class="bg-[#0E1028] border border-white/8 rounded-3xl p-7">
+                <h2 class="text-xs text-slate-500 font-black uppercase tracking-widest mb-5">Venue & Pricing</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs text-slate-400 font-semibold block mb-1.5">Venue Name *</label>
+                        <input id="evVenue" type="text" placeholder="e.g. Mullins Center"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500/60 focus:bg-white/8 transition-all placeholder-slate-600">
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 font-semibold block mb-1.5">Full Address</label>
+                        <input id="evAddress" type="text" placeholder="For Google Maps link"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500/60 focus:bg-white/8 transition-all placeholder-slate-600">
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 font-semibold block mb-1.5">Ticket Price ($) *</label>
+                        <input id="evPrice" type="number" min="0" step="0.01" placeholder="25.00"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500/60 focus:bg-white/8 transition-all placeholder-slate-600">
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 font-semibold block mb-1.5">Total Seats *</label>
+                        <input id="evSeats" type="number" min="1" placeholder="500"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500/60 focus:bg-white/8 transition-all placeholder-slate-600">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schedule -->
+            <div class="bg-[#0E1028] border border-white/8 rounded-3xl p-7">
+                <h2 class="text-xs text-slate-500 font-black uppercase tracking-widest mb-5">Schedule</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs text-slate-400 font-semibold block mb-1.5">Event Start *</label>
+                        <input id="evStartTime" type="datetime-local"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500/60 transition-all text-slate-300 [color-scheme:dark]">
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 font-semibold block mb-1.5">Ticket Sale Ends</label>
+                        <input id="evExpiryDate" type="datetime-local"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500/60 transition-all text-slate-300 [color-scheme:dark]">
+                        <p class="text-slate-600 text-[11px] mt-1">Defaults to 24h after event start if left blank.</p>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="text-xs text-slate-400 font-semibold block mb-1.5">Organizer Contact</label>
+                        <input id="evContact" type="text" placeholder="Name · email@example.com · +1 555-0000"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500/60 focus:bg-white/8 transition-all placeholder-slate-600">
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-4">
-                <label class="text-[10px] text-slate-500 uppercase font-black tracking-widest ml-1">Venue & Location</label>
-                <input id="evVenue" type="text" placeholder="Venue Name (e.g., Mullins Center)" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-                <input id="evAddress" type="text" placeholder="Full Address (for Google Maps)" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+        <!-- Sidebar: Preview + Publish -->
+        <div class="col-span-12 lg:col-span-4 space-y-5">
+
+            <!-- Image Preview -->
+            <div class="bg-[#0E1028] border border-white/8 rounded-3xl p-5">
+                <h2 class="text-xs text-slate-500 font-black uppercase tracking-widest mb-3">Poster Preview</h2>
+                <div class="aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-white/5">
+                    <img id="img-preview" src="" alt="Preview"
+                        class="w-full h-full object-cover hidden"
+                        onerror="this.classList.add('hidden');document.getElementById('img-placeholder').classList.remove('hidden')">
+                    <div id="img-placeholder" class="w-full h-full flex items-center justify-center text-slate-600 text-sm text-center px-4">
+                        Enter an image URL to see preview
+                    </div>
+                </div>
             </div>
-            <div class="space-y-4">
-                <label class="text-[10px] text-slate-500 uppercase font-black tracking-widest ml-1">Pricing & Inventory</label>
-                <input id="evPrice" type="number" placeholder="Ticket Price ($)" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-                <input id="evSeats" type="number" placeholder="Total Seat Count" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+
+            <!-- Publish Button -->
+            <div class="bg-[#0E1028] border border-white/8 rounded-3xl p-5">
+                <h2 class="text-xs text-slate-500 font-black uppercase tracking-widest mb-4">Publish</h2>
+                <button onclick="deploy()" id="deploy-btn"
+                    class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-xl shadow-indigo-600/20 active:scale-[0.98]">
+                    Publish Event & Generate Seats
+                </button>
+                <p id="deploy-error" class="text-red-400 text-xs mt-3 hidden text-center"></p>
+                <p class="text-slate-600 text-xs mt-3 text-center leading-relaxed">
+                    Seats are generated automatically based on the seat count you provide.
+                </p>
+            </div>
+
+            <!-- Tips -->
+            <div class="bg-indigo-600/8 border border-indigo-500/15 rounded-3xl p-5">
+                <h2 class="text-xs text-indigo-400 font-black uppercase tracking-widest mb-3">AI Tip</h2>
+                <p class="text-slate-400 text-xs leading-relaxed">
+                    Fill in the event name, venue, category and price first — then click <span class="text-indigo-400 font-semibold">"Generate with AI"</span> to get a compelling description written by Claude.
+                </p>
             </div>
         </div>
-
-        <div class="grid grid-cols-2 gap-4">
-            <div class="flex flex-col">
-                <label class="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2 ml-1">Event Start Time</label>
-                <input id="evStartTime" type="datetime-local" class="bg-slate-800 p-4 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <div class="flex flex-col">
-                <label class="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-2 ml-1">Event Expiry (End Date)</label>
-                <input id="evExpiryDate" type="datetime-local" class="bg-slate-800 p-4 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-        </div>
-
-        <div class="space-y-4">
-            <label class="text-[10px] text-slate-500 uppercase font-black tracking-widest ml-1">Contact Information</label>
-            <input id="evContact" type="text" placeholder="Organizer Name & Phone/Email" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-        </div>
-
-        <button onclick="deploy()" class="w-full bg-indigo-600 p-5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20 active:scale-[0.98]">
-            Publish Event & Generate Seats
-        </button>
     </div>
 </div>
 
 <script>
-    async function deploy() {
-        // Collect all data from the form
-        const data = {
-        name: document.getElementById('evName').value,
-        venue: document.getElementById('evVenue').value,
-        venueAddress: document.getElementById('evAddress').value,
-        price: document.getElementById('evPrice').value,
-        imageUrl: document.getElementById('evImage').value,
-        contactInfo: document.getElementById('evContact').value,
-        eventTime: document.getElementById('evStartTime').value, // Use actual input
-        expiryDate: document.getElementById('evExpiryDate').value // Use actual input
-    };
+    // Live image preview
+    document.getElementById('evImage').addEventListener('input', function() {
+        const img = document.getElementById('img-preview');
+        const ph = document.getElementById('img-placeholder');
+        if (this.value) {
+            img.src = this.value;
+            img.classList.remove('hidden');
+            ph.classList.add('hidden');
+        } else {
+            img.classList.add('hidden');
+            ph.classList.remove('hidden');
+        }
+    });
 
-        const count = document.getElementById('evSeats').value;
+    async function generateDescription() {
+        const name = document.getElementById('evName').value.trim();
+        const venue = document.getElementById('evVenue').value.trim();
+        const category = document.getElementById('evCategory').value;
+        const price = parseFloat(document.getElementById('evPrice').value) || 0;
 
-        // Validation: Ensure basic fields are filled
-        if (!data.name || !count || !data.eventTime) {
-            alert("Please fill in Event Name, Seat Count, and Start Time.");
+        if (!name) {
+            document.getElementById('ai-status').textContent = 'Enter the event name first.';
+            document.getElementById('ai-status').classList.remove('hidden');
             return;
         }
 
+        const btn = document.getElementById('ai-btn');
+        const status = document.getElementById('ai-status');
+        btn.disabled = true;
+        btn.innerHTML = `<svg class="animate-spin w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Generating...`;
+        status.textContent = 'Claude is writing your description...';
+        status.classList.remove('hidden');
+
         try {
-            const response = await fetch(`/api/v1/admin/events?seatCount=${count}`, {
+            const res = await fetch('/api/v1/ai/describe', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ eventName: name, venue: venue || 'TBD', category, price })
+            });
+            const text = await res.text();
+            document.getElementById('evDescription').value = text;
+            status.textContent = 'Description generated by Claude AI';
+        } catch {
+            status.textContent = 'AI unavailable. Add ANTHROPIC_API_KEY to use this feature.';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> Generate with AI`;
+        }
+    }
+
+    async function deploy() {
+        const data = {
+            name: document.getElementById('evName').value,
+            venue: document.getElementById('evVenue').value,
+            venueAddress: document.getElementById('evAddress').value,
+            price: document.getElementById('evPrice').value,
+            imageUrl: document.getElementById('evImage').value,
+            contactInfo: document.getElementById('evContact').value,
+            description: document.getElementById('evDescription').value,
+            category: document.getElementById('evCategory').value || 'OTHER',
+            eventTime: document.getElementById('evStartTime').value,
+            expiryDate: document.getElementById('evExpiryDate').value || null
+        };
+        const count = document.getElementById('evSeats').value;
+        const errEl = document.getElementById('deploy-error');
+
+        if (!data.name || !count || !data.eventTime) {
+            errEl.textContent = 'Event name, seat count, and start time are required.';
+            errEl.classList.remove('hidden');
+            return;
+        }
+        errEl.classList.add('hidden');
+
+        const btn = document.getElementById('deploy-btn');
+        btn.disabled = true;
+        btn.textContent = 'Publishing...';
+
+        try {
+            const res = await fetch(`/api/v1/admin/events?seatCount=${count}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-
-            if (response.ok) {
-                alert("🚀 Event is now LIVE! Redirecting to Marketplace...");
-                window.location.href = "/";
+            if (res.ok) {
+                document.getElementById('toast').classList.remove('hidden');
+                setTimeout(() => window.location.href = '/', 1500);
             } else {
-                const error = await response.text();
-                alert("Error: " + error);
+                const err = await res.text();
+                errEl.textContent = 'Error: ' + err;
+                errEl.classList.remove('hidden');
             }
-        } catch (err) {
-            console.error(err);
-            alert("Connection failed. Ensure the Spring Boot server is running.");
+        } catch {
+            errEl.textContent = 'Connection failed. Ensure the server is running.';
+            errEl.classList.remove('hidden');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Publish Event & Generate Seats';
         }
     }
 </script>

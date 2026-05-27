@@ -9,15 +9,29 @@ import org.springframework.ui.Model;
 public class ViewController {
 
     @GetMapping("/")
+    public String homePage() {
+        return "index";
+    }
+
+    @GetMapping("/events")
     public String eventsPage() {
-        return "events"; // Landing page with list of events
+        return "events";
     }
 
     @GetMapping("/booking/{eventId}")
     public String bookingPage(@PathVariable Long eventId, Model model) {
-        // We pass the eventId to the HTML so the JavaScript can use it
         model.addAttribute("eventId", eventId);
         return "booking";
+    }
+
+    @GetMapping("/login")
+    public String loginPage() {
+        return "login";
+    }
+
+    @GetMapping("/my-tickets")
+    public String myTicketsPage() {
+        return "my-tickets";
     }
 
     @GetMapping("/admin")

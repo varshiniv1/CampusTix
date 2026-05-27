@@ -23,4 +23,5 @@ public class Event {
     private String imageUrl;
     private String contactInfo;
     private String description;
+    private String category; // MUSIC, SPORTS, COMEDY, ARTS, FAMILY, OTHER
 }

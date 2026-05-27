@@ -2,154 +2,354 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>CampusTix | Reserve Your Seat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CampusTix | Book Tickets</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.0/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .seat-available { @apply bg-slate-800 border-slate-700 text-slate-400 hover:border-indigo-500 hover:bg-indigo-900/30 hover:text-white cursor-pointer; }
+        #chat-panel { transition: opacity 0.2s ease, transform 0.2s ease; }
+        #chat-panel.hidden { opacity: 0; transform: translateY(12px); pointer-events: none; }
+        #chat-panel:not(.hidden) { opacity: 1; transform: translateY(0); }
+        .chat-msg-user { background: #4f46e5; color: white; border-radius: 18px 18px 4px 18px; }
+        .chat-msg-ai { background: #1e2947; color: #cbd5e1; border-radius: 18px 18px 18px 4px; }
+    </style>
 </head>
-<body class="bg-[#0b0f1a] text-slate-200 min-h-screen">
+<body class="bg-[#06081C] text-white min-h-screen">
 
-<div id="booking-container">
-    <div class="relative h-64 w-full overflow-hidden border-b border-slate-800">
-        <img id="event-hero-img" src="" class="w-full h-full object-cover opacity-40 blur-sm absolute">
-        <div class="relative z-10 max-w-7xl mx-auto px-6 h-full flex flex-col justify-center">
-            <h1 id="event-title" class="text-5xl font-black text-white tracking-tighter uppercase italic">Loading...</h1>
-            <p id="event-subtitle" class="text-indigo-400 font-bold tracking-widest uppercase text-sm mt-2"></p>
+<!-- Nav -->
+<nav class="sticky top-0 z-40 bg-[#06081C]/95 backdrop-blur-md border-b border-white/5">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
+        <a href="/" class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-black text-sm">C</div>
+            <span class="text-lg font-black tracking-tight">Campus<span class="text-indigo-400">Tix</span></span>
+        </a>
+        <span class="text-slate-700">/</span>
+        <span id="nav-event-name" class="text-sm text-slate-400 truncate max-w-xs">Loading...</span>
+        <div class="ml-auto flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-full bg-white/5 border border-white/8">
+            <span id="ws-dot" class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+            <span id="ws-status">Connecting...</span>
+        </div>
+    </div>
+</nav>
+
+<!-- Hero Banner -->
+<div class="relative h-56 w-full overflow-hidden">
+    <img id="event-hero-img" src="" class="w-full h-full object-cover opacity-30 blur-sm absolute inset-0"
+        onerror="this.src='https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=1200'">
+    <div class="absolute inset-0 bg-gradient-to-t from-[#06081C] via-[#06081C]/60 to-transparent"></div>
+    <div class="relative z-10 max-w-7xl mx-auto px-6 h-full flex flex-col justify-end pb-6">
+        <div id="event-category-badge" class="hidden mb-2">
+            <span class="bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest"></span>
+        </div>
+        <h1 id="event-title" class="text-4xl md:text-5xl font-black tracking-tight text-white leading-none">Loading...</h1>
+        <p id="event-subtitle" class="text-indigo-400 font-semibold tracking-wide text-sm mt-2"></p>
+    </div>
+</div>
+
+<!-- Main Content -->
+<div class="max-w-7xl mx-auto px-6 py-8 grid grid-cols-12 gap-6">
+
+    <!-- Seat Map -->
+    <div class="col-span-12 lg:col-span-8 space-y-5">
+        <div class="bg-[#0E1028] border border-white/8 rounded-3xl p-6 shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-base font-bold text-white">Select a Seat</h2>
+                    <p id="seats-available" class="text-slate-500 text-xs mt-0.5"></p>
+                </div>
+                <div class="flex items-center gap-4 text-[10px] uppercase font-bold tracking-widest text-slate-500">
+                    <span class="flex items-center gap-1.5"><div class="w-3 h-3 bg-slate-800 border border-slate-700 rounded"></div> Available</span>
+                    <span class="flex items-center gap-1.5"><div class="w-3 h-3 bg-red-900/40 border border-red-800/50 rounded"></div> Taken</span>
+                </div>
+            </div>
+
+            <!-- Stage indicator -->
+            <div class="flex items-center gap-3 justify-center mb-6">
+                <div class="h-px flex-1 bg-white/5"></div>
+                <div class="bg-white/5 border border-white/8 text-slate-500 text-[10px] font-bold uppercase tracking-widest px-5 py-1.5 rounded-full">Stage / Screen</div>
+                <div class="h-px flex-1 bg-white/5"></div>
+            </div>
+
+            <div id="stadium" class="grid grid-cols-10 gap-2"></div>
+        </div>
+
+        <!-- Event Description -->
+        <div id="desc-card" class="hidden bg-[#0E1028] border border-white/8 rounded-3xl p-6">
+            <h3 class="text-xs text-slate-500 font-black uppercase tracking-widest mb-3">About This Event</h3>
+            <p id="event-description" class="text-slate-300 text-sm leading-relaxed"></p>
         </div>
     </div>
 
-    <div class="max-w-7xl mx-auto px-6 py-10 grid grid-cols-12 gap-8">
-        <div class="col-span-12 lg:col-span-8">
-            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-bold text-white">Select Your Seat</h2>
-                    <div class="flex gap-4 text-[10px] uppercase font-bold tracking-widest">
-                        <span class="flex items-center gap-2"><div class="w-3 h-3 bg-slate-800 border border-slate-700 rounded"></div> Available</span>
-                        <span class="flex items-center gap-2"><div class="w-3 h-3 bg-red-900/40 border border-red-900/50 rounded"></div> Taken</span>
+    <!-- Sidebar -->
+    <div class="col-span-12 lg:col-span-4 space-y-5">
+
+        <!-- Event Info Card -->
+        <div class="bg-[#0E1028] border border-white/8 rounded-3xl p-5 sticky top-24">
+            <h3 class="text-xs text-slate-500 font-black uppercase tracking-widest mb-4">Event Details</h3>
+
+            <div id="event-price" class="text-3xl font-black mb-4 text-white"></div>
+
+            <div class="space-y-3 mb-5">
+                <div class="flex items-center gap-3 text-sm">
+                    <div class="w-7 h-7 bg-white/5 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    </div>
+                    <span id="info-datetime" class="text-slate-300"></span>
+                </div>
+                <div class="flex items-start gap-3 text-sm">
+                    <div class="w-7 h-7 bg-white/5 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                    </div>
+                    <div>
+                        <p id="info-venue" class="text-slate-300"></p>
+                        <p id="info-address" class="text-slate-500 text-xs mt-0.5"></p>
                     </div>
                 </div>
-                <div id="stadium" class="grid grid-cols-10 gap-3 py-6"></div>
-            </div>
-        </div>
-
-        <div class="col-span-12 lg:col-span-4 space-y-6">
-            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
-                <h3 class="text-xs text-indigo-500 font-black uppercase tracking-widest mb-4">Venue Logistics</h3>
-                <p id="venue-address" class="text-slate-300 text-sm mb-4 italic"></p>
-                <a id="directions-btn" target="_blank" class="flex items-center justify-center gap-2 w-full bg-indigo-600 hover:bg-indigo-500 p-4 rounded-2xl text-xs font-black transition-all shadow-lg shadow-indigo-600/20">
-                    OPEN IN GOOGLE MAPS
-                </a>
             </div>
 
-            <div class="bg-slate-950 border border-slate-800 rounded-3xl p-6 h-[400px] flex flex-col">
-                <h3 class="text-xs text-indigo-500 font-mono italic mb-4">> System Feed</h3>
-                <div id="logs" class="space-y-2 overflow-y-auto font-mono text-[10px] flex-grow"></div>
-            </div>
-        </div>
-    </div>
+            <a id="directions-btn" target="_blank" href="#"
+                class="flex items-center justify-center gap-2 w-full bg-white/5 hover:bg-white/10 border border-white/10 p-3 rounded-xl text-xs font-bold transition-all mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg>
+                Open in Google Maps
+            </a>
 
-    <div id="checkout-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-        <div class="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] max-w-md w-full shadow-2xl">
-            <h3 class="text-2xl font-bold text-white mb-2">Complete Purchase</h3>
-            <p id="selected-seat-label" class="text-indigo-400 text-sm font-mono mb-6 uppercase tracking-widest"></p>
-
-            <div class="space-y-4">
-                <input id="form-email" type="email" placeholder="Email Address" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500">
-                <input id="form-name" type="text" placeholder="Full Name" class="w-full bg-slate-800 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500">
-
-                <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                    <p class="text-[10px] text-slate-500 uppercase font-bold mb-2">Dummy Payment Card</p>
-                    <input type="text" placeholder="4242 4242 4242 4242" class="w-full bg-transparent outline-none text-sm font-mono tracking-widest text-indigo-300">
-                </div>
-
-                <button onclick="submitBooking()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl font-black uppercase transition-all shadow-xl shadow-indigo-600/20 active:scale-95">
-                    Confirm & Pay
-                </button>
-                <button onclick="closeModal()" class="w-full text-slate-500 text-xs font-bold uppercase tracking-widest mt-2 hover:text-white transition-all">Cancel</button>
+            <!-- System Feed -->
+            <div class="bg-black/20 border border-white/5 rounded-2xl p-4">
+                <h4 class="text-[10px] text-slate-600 font-mono font-bold mb-3">> System Feed</h4>
+                <div id="logs" class="space-y-1.5 overflow-y-auto max-h-36 font-mono text-[10px]"></div>
             </div>
         </div>
     </div>
 </div>
 
+<!-- ─── Checkout Modal ─── -->
+<div id="checkout-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="bg-[#0E1028] border border-white/10 p-8 rounded-[2rem] max-w-sm w-full shadow-2xl">
+        <h3 class="text-xl font-black text-white mb-1">Complete Purchase</h3>
+        <p id="selected-seat-label" class="text-indigo-400 text-xs font-mono mb-6 uppercase tracking-widest"></p>
+
+        <div class="space-y-3">
+            <input id="form-email" type="email" placeholder="Email address (any email)"
+                class="w-full bg-white/5 border border-white/10 rounded-xl p-3.5 text-sm outline-none focus:border-indigo-500/60 transition-all placeholder-slate-600">
+            <input id="form-name" type="text" placeholder="Full name"
+                class="w-full bg-white/5 border border-white/10 rounded-xl p-3.5 text-sm outline-none focus:border-indigo-500/60 transition-all placeholder-slate-600">
+
+            <div class="bg-black/30 p-4 rounded-xl border border-white/8">
+                <p class="text-[10px] text-slate-600 font-bold mb-2 uppercase tracking-widest">Demo Payment</p>
+                <p class="text-sm font-mono text-slate-400 tracking-widest">4242 4242 4242 4242</p>
+                <div class="flex gap-4 mt-2">
+                    <p class="text-xs font-mono text-slate-600">12/28</p>
+                    <p class="text-xs font-mono text-slate-600">123</p>
+                </div>
+            </div>
+
+            <div id="modal-price" class="flex justify-between items-center py-2 border-t border-white/8 text-sm">
+                <span class="text-slate-400">Total</span>
+                <span class="font-black text-white text-lg"></span>
+            </div>
+
+            <button onclick="submitBooking()"
+                class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl font-black uppercase tracking-widest text-sm transition-all shadow-xl shadow-indigo-600/20 active:scale-[0.98]">
+                Confirm & Pay
+            </button>
+            <button onclick="closeModal()" class="w-full text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest py-2 transition-all">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- ─── AI Chat Widget ─── -->
+<div class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+    <!-- Chat Panel -->
+    <div id="chat-panel" class="hidden w-80 bg-[#0E1028] border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
+        <!-- Header -->
+        <div class="bg-indigo-600 px-5 py-3.5 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="w-2 h-2 bg-green-300 rounded-full animate-pulse"></div>
+                <div>
+                    <p class="text-sm font-bold leading-none">AI Event Assistant</p>
+                    <p class="text-indigo-200 text-[10px] mt-0.5">Powered by Claude</p>
+                </div>
+            </div>
+            <button onclick="toggleChat()" class="text-white/60 hover:text-white text-xl leading-none transition-colors">×</button>
+        </div>
+
+        <!-- Messages -->
+        <div id="chat-messages" class="h-64 overflow-y-auto p-4 space-y-3 scroll-smooth">
+            <div class="chat-msg-ai text-sm px-3.5 py-2.5 max-w-[90%]">
+                Hi! I'm your AI assistant for this event. Ask me anything about the show, venue, or what to expect! 🎟️
+            </div>
+        </div>
+
+        <!-- Thinking indicator -->
+        <div id="chat-thinking" class="hidden px-4 pb-1">
+            <div class="chat-msg-ai text-sm px-3.5 py-2.5 inline-flex items-center gap-1.5 text-slate-400">
+                <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay:0s"></span>
+                <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay:0.15s"></span>
+                <span class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay:0.3s"></span>
+            </div>
+        </div>
+
+        <!-- Suggested questions -->
+        <div id="chat-suggestions" class="px-4 pb-2 flex flex-wrap gap-1.5">
+            <button onclick="sendSuggestion(this)" class="bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white text-[10px] px-2.5 py-1 rounded-full transition-all">What's the dress code?</button>
+            <button onclick="sendSuggestion(this)" class="bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white text-[10px] px-2.5 py-1 rounded-full transition-all">Is parking available?</button>
+            <button onclick="sendSuggestion(this)" class="bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white text-[10px] px-2.5 py-1 rounded-full transition-all">Refund policy?</button>
+        </div>
+
+        <!-- Input -->
+        <div class="p-3 border-t border-white/8 flex gap-2">
+            <input id="chat-input" type="text" placeholder="Ask anything about this event..."
+                class="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500/50 transition-all placeholder-slate-600"
+                onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendChat(); }">
+            <button onclick="sendChat()"
+                class="bg-indigo-600 hover:bg-indigo-500 w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-90 flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toggle Button -->
+    <button onclick="toggleChat()" id="chat-toggle-btn"
+        class="w-14 h-14 bg-indigo-600 hover:bg-indigo-500 rounded-full flex items-center justify-center shadow-2xl shadow-indigo-600/40 transition-all active:scale-90 relative">
+        <svg id="chat-icon-open" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        <svg id="chat-icon-close" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        <span class="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-[#06081C]"></span>
+    </button>
+</div>
+
 <script th:inline="javascript">
     const EVENT_ID = /*[[${eventId}]]*/ 0;
-    let STUDENT_EMAIL = "";
+    let STUDENT_EMAIL = '';
     let stompClient = null;
     let currentSeatId = null;
-    let currentSeatName = "";
+    let currentSeatName = '';
+    let eventPrice = 0;
+    let chatOpen = false;
 
-    // 1. Initial Load: Fetch Event Metadata
+    // ─── Load Event ───────────────────────────────────────────────
     async function loadEventDetails() {
         try {
             const res = await fetch(`/api/v1/admin/events/${EVENT_ID}`);
             const ev = await res.json();
 
-            const isExpired = new Date() > new Date(ev.expiryDate);
-            if (isExpired) {
-                renderExpiredUI(ev.name);
+            if (new Date() > new Date(ev.expiryDate || Date.now() + 86400000)) {
+                renderExpired(ev.name);
                 return;
             }
 
-            document.getElementById('event-title').innerText = ev.name;
-            document.getElementById('event-subtitle').innerText = `${ev.venue} // ${new Date(ev.eventTime).toLocaleString()}`;
-            document.getElementById('event-hero-img').src = ev.imageUrl || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4';
-            document.getElementById('venue-address').innerText = ev.venueAddress || "Address Pending";
+            eventPrice = ev.price || 0;
+            document.getElementById('event-title').textContent = ev.name;
+            document.getElementById('nav-event-name').textContent = ev.name;
+            document.getElementById('event-hero-img').src = ev.imageUrl || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=1200';
 
-            const encodedAddress = encodeURIComponent(ev.venueAddress);
-            document.getElementById('directions-btn').href = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+            const dt = ev.eventTime ? new Date(ev.eventTime) : null;
+            const dateStr = dt ? dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : 'Date TBD';
+            const timeStr = dt ? dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
+            document.getElementById('event-subtitle').textContent = `${ev.venue} · ${dateStr}`;
+            document.getElementById('info-datetime').textContent = dateStr + (timeStr ? ' · ' + timeStr : '');
+            document.getElementById('info-venue').textContent = ev.venue || 'TBD';
+            document.getElementById('info-address').textContent = ev.venueAddress || '';
+            document.getElementById('event-price').textContent = '$' + Number(eventPrice).toFixed(2);
+
+            if (ev.venueAddress) {
+                document.getElementById('directions-btn').href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.venueAddress)}`;
+            }
+
+            if (ev.description) {
+                document.getElementById('event-description').textContent = ev.description;
+                document.getElementById('desc-card').classList.remove('hidden');
+            }
+
+            if (ev.category) {
+                const badge = document.getElementById('event-category-badge');
+                badge.querySelector('span').textContent = ev.category;
+                badge.classList.remove('hidden');
+            }
 
             loadSeats();
-        } catch (error) {
-            console.error("Error loading event:", error);
-            addLog("System error: Could not load event data.", "text-red-500");
+            connect();
+        } catch {
+            addLog('Failed to load event data.', 'text-red-400');
         }
     }
 
-    // 2. Real-time Connection via WebSockets
-    function connect() {
-        if (stompClient && stompClient.connected) return;
+    // ─── WebSocket ────────────────────────────────────────────────
+    function emailToChannelSuffix(email) {
+        // Must match KafkaConsumerService.toChannelSuffix() — URL-safe base64, no padding
+        return btoa(unescape(encodeURIComponent(email)))
+            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
 
+    let userStatusSub = null;
+
+    function connect() {
+        if (stompClient?.connected) {
+            subscribeToUserChannel();
+            return;
+        }
         const socket = new SockJS('/ws-tickets');
         stompClient = Stomp.over(socket);
         stompClient.debug = null;
         stompClient.connect({}, () => {
-            addLog(`WebSocket Connected: Listening for confirmation...`, "text-slate-500");
-
-            stompClient.subscribe(`/user/${STUDENT_EMAIL}/topic/status`, (msg) => {
-                addLog(msg.body, msg.body.includes("SUCCESS") ? "text-green-400" : "text-red-400");
-                loadSeats();
-            });
-
+            document.getElementById('ws-dot').className = 'w-2 h-2 rounded-full bg-green-400';
+            document.getElementById('ws-status').textContent = 'Live';
+            addLog('Real-time connection established.', 'text-slate-500');
+            subscribeToUserChannel();
             stompClient.subscribe('/topic/seats-update', () => loadSeats());
         });
     }
 
-    // 3. Load Stadium Map
+    function subscribeToUserChannel() {
+        if (!STUDENT_EMAIL || !stompClient?.connected) return;
+        if (userStatusSub) userStatusSub.unsubscribe();
+        const channel = '/topic/status/' + emailToChannelSuffix(STUDENT_EMAIL);
+        userStatusSub = stompClient.subscribe(channel, (msg) => {
+            const isSuccess = msg.body.includes('SUCCESS');
+            addLog(msg.body, isSuccess ? 'text-green-400' : 'text-red-400');
+            loadSeats();
+            if (isSuccess) showSuccessState(msg.body.match(/Ref:\s*(CT-[A-Z0-9]+)/)?.[1]);
+        });
+    }
+
+    // ─── Seat Map ─────────────────────────────────────────────────
     async function loadSeats() {
         const res = await fetch(`/api/v1/tickets/seats?eventId=${EVENT_ID}`);
         const seats = await res.json();
         const stadium = document.getElementById('stadium');
         stadium.innerHTML = '';
 
+        const available = seats.filter(s => s.status === 'AVAILABLE').length;
+        document.getElementById('seats-available').textContent = `${available} of ${seats.length} seats available`;
+
         seats.forEach(seat => {
             const div = document.createElement('div');
             const isSold = seat.status === 'SOLD';
-            div.className = `h-10 flex items-center justify-center rounded-lg text-[10px] font-bold cursor-pointer transition-all border
-                ${isSold ? 'bg-red-900/20 border-red-900/50 text-red-500 grayscale cursor-not-allowed' : 'bg-slate-800 border-slate-700 hover:border-indigo-500 text-slate-400'}`;
-            div.innerText = seat.seatNumber;
-
-            if(!isSold) {
-                div.onclick = () => openCheckout(seat.id, seat.seatNumber);
-            }
+            div.className = `h-9 flex items-center justify-center rounded-lg text-[9px] font-bold border transition-all
+                ${isSold
+                    ? 'bg-red-900/15 border-red-900/30 text-red-600 cursor-not-allowed'
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-indigo-500 hover:bg-indigo-900/30 hover:text-white cursor-pointer hover:scale-110'}`;
+            div.textContent = seat.seatNumber;
+            if (!isSold) div.onclick = () => openCheckout(seat.id, seat.seatNumber);
             stadium.appendChild(div);
         });
     }
 
-    // 4. Modal Management
+    // ─── Checkout Modal ───────────────────────────────────────────
     function openCheckout(id, name) {
         currentSeatId = id;
         currentSeatName = name;
-        document.getElementById('selected-seat-label').innerText = `SEAT: ${name}`;
+        document.getElementById('selected-seat-label').textContent = `Seat ${name}`;
+        document.getElementById('modal-price').querySelector('span.font-black').textContent = '$' + Number(eventPrice).toFixed(2);
+
+        const user = JSON.parse(localStorage.getItem('campustix_user') || 'null');
+        if (user) {
+            document.getElementById('form-email').value = user.email;
+            document.getElementById('form-name').value = user.name;
+        }
         document.getElementById('checkout-modal').classList.remove('hidden');
     }
 
@@ -157,52 +357,100 @@
         document.getElementById('checkout-modal').classList.add('hidden');
     }
 
-    // 5. Submit Booking (Kafka Producer)
     async function submitBooking() {
-        const email = document.getElementById('form-email').value;
-        const name = document.getElementById('form-name').value;
-
-        if(!email || !email.includes("@") || !name) {
-            alert("Please provide a valid name and email address.");
+        const email = document.getElementById('form-email').value.trim();
+        const name = document.getElementById('form-name').value.trim();
+        if (!email || !email.includes('@') || !name) {
+            addLog('Please enter a valid name and email.', 'text-orange-400');
             return;
         }
-
         STUDENT_EMAIL = email;
         closeModal();
-        addLog(`Initiating secure payment for ${currentSeatName}...`, "text-indigo-400");
+        addLog(`Processing ticket for ${name} (${email})...`, 'text-indigo-400');
+        if (!stompClient?.connected) connect();
 
-        // Connect WS first so we don't miss the Kafka response
-        connect();
+        const res = await fetch(
+            `/api/v1/tickets/claim?studentId=${encodeURIComponent(email)}&seatId=${currentSeatId}&studentName=${encodeURIComponent(name)}`,
+            { method: 'POST' }
+        );
+        if (res.status === 429) addLog('Rate limit: please wait 5 seconds before retrying.', 'text-orange-400');
+        else if (res.ok) addLog('Payment accepted. Ticket is being processed...', 'text-green-400');
+        else addLog('Request failed. Please try again.', 'text-red-400');
+    }
 
-        const res = await fetch(`/api/v1/tickets/claim?studentId=${email}&seatId=${currentSeatId}&studentName=${encodeURIComponent(name)}`, {
-            method: 'POST'
-        });
+    function showSuccessState(ref) {
+        addLog(`Booking confirmed! Check your email for your QR ticket.`, 'text-green-400');
+    }
 
-        if (res.status === 429) {
-            addLog("Redis blocked: Rate limit exceeded (1 request/5s).", "text-orange-500");
-        } else if (res.ok) {
-            addLog("Payment Accepted. Processing Ticket via Kafka...", "text-green-400");
-        } else {
-            addLog("Request failed. Server is under heavy load.", "text-red-500");
+    // ─── Logs ─────────────────────────────────────────────────────
+    function addLog(text, color) {
+        const logs = document.getElementById('logs');
+        const el = document.createElement('div');
+        el.className = `${color}`;
+        el.innerHTML = `<span class="text-slate-700">[${new Date().toLocaleTimeString()}]</span> ${text}`;
+        logs.prepend(el);
+    }
+
+    // ─── AI Chat ──────────────────────────────────────────────────
+    function toggleChat() {
+        chatOpen = !chatOpen;
+        const panel = document.getElementById('chat-panel');
+        const iconOpen = document.getElementById('chat-icon-open');
+        const iconClose = document.getElementById('chat-icon-close');
+        panel.classList.toggle('hidden', !chatOpen);
+        iconOpen.classList.toggle('hidden', chatOpen);
+        iconClose.classList.toggle('hidden', !chatOpen);
+        if (chatOpen) document.getElementById('chat-input').focus();
+    }
+
+    function sendSuggestion(btn) {
+        document.getElementById('chat-input').value = btn.textContent;
+        document.getElementById('chat-suggestions').classList.add('hidden');
+        sendChat();
+    }
+
+    async function sendChat() {
+        const input = document.getElementById('chat-input');
+        const msg = input.value.trim();
+        if (!msg) return;
+        input.value = '';
+
+        addChatMsg(msg, 'user');
+        document.getElementById('chat-thinking').classList.remove('hidden');
+
+        try {
+            const res = await fetch('/api/v1/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ eventId: EVENT_ID, message: msg })
+            });
+            const reply = await res.text();
+            document.getElementById('chat-thinking').classList.add('hidden');
+            addChatMsg(reply, 'ai');
+        } catch {
+            document.getElementById('chat-thinking').classList.add('hidden');
+            addChatMsg('Sorry, the AI assistant is unavailable right now.', 'ai');
         }
     }
 
-    // 6. Utility Functions
-    function addLog(text, color) {
-        const entry = document.createElement('div');
-        entry.className = `p-2 rounded bg-slate-900/50 border-l-2 border-slate-800 ${color}`;
-        entry.innerHTML = `<span class="opacity-30">[${new Date().toLocaleTimeString()}]</span> ${text}`;
-        const logBox = document.getElementById('logs');
-        logBox.prepend(entry);
+    function addChatMsg(text, role) {
+        const container = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.className = `text-sm px-3.5 py-2.5 max-w-[88%] ${role === 'user' ? 'chat-msg-user ml-auto' : 'chat-msg-ai'}`;
+        div.textContent = text;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
     }
 
-    function renderExpiredUI(eventName) {
-        document.getElementById('booking-container').innerHTML = `
-            <div class="h-screen flex flex-col items-center justify-center bg-[#0b0f1a] text-white p-10">
-                <div class="bg-red-500/10 border border-red-500/30 p-12 rounded-[3rem] text-center max-w-md shadow-2xl">
-                    <h1 class="text-4xl font-black text-red-500 mb-4 italic uppercase tracking-tighter">Event Expired</h1>
-                    <p class="text-slate-400 text-sm mb-8 leading-relaxed">Tickets for <b>${eventName}</b> are no longer available. This event has officially closed.</p>
-                    <a href="/" class="inline-block bg-white text-black px-10 py-4 rounded-2xl text-xs font-black uppercase hover:bg-indigo-500 hover:text-white transition-all shadow-xl shadow-white/5">Back to Marketplace</a>
+    // ─── Expired ──────────────────────────────────────────────────
+    function renderExpired(name) {
+        document.body.innerHTML = `
+            <div class="min-h-screen bg-[#06081C] flex items-center justify-center p-8">
+                <div class="text-center max-w-md">
+                    <div class="text-6xl mb-6">🎟️</div>
+                    <h1 class="text-3xl font-black text-red-400 mb-3">Event Ended</h1>
+                    <p class="text-slate-400 mb-8">Tickets for <strong>${name}</strong> are no longer available.</p>
+                    <a href="/" class="inline-block bg-indigo-600 hover:bg-indigo-500 px-8 py-3 rounded-2xl font-bold transition-all">Browse Other Events</a>
                 </div>
             </div>`;
     }
