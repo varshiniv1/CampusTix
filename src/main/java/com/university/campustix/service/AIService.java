@@ -11,8 +11,14 @@ import java.util.Map;
 @Service
 public class AIService {
 
-    @Value("${ai.api.key:}")
+    @Value("${ai.base-url:http://localhost:8080}")
+    private String baseUrl;
+
+    @Value("${ai.api-key:sk-unsloth-placeholder}")
     private String apiKey;
+
+    @Value("${ai.model:unsloth/Qwen2.5-7B-Instruct-GGUF}")
+    private String model;
 
     private final RestClient restClient = RestClient.create();
 
@@ -23,7 +29,7 @@ public class AIService {
             "Make it exciting, concise, and professional. Return only the description text.",
             eventName, venue, category != null ? category : "Event", price != null ? price : 0.0
         );
-        return callClaude(prompt);
+        return callLLM(prompt);
     }
 
     public String chat(String eventName, String venue, String eventTime, String description, String userMessage) {
@@ -33,18 +39,17 @@ public class AIService {
             "Event: %s\nVenue: %s\nDate/Time: %s\nDescription: %s\n\n" +
             "User question: %s\n\n" +
             "Be concise (2-3 sentences max). If the question is unrelated to this event, politely redirect.",
-            eventName, venue, eventTime, description != null ? description : "No description available.", userMessage
+            eventName, venue, eventTime,
+            description != null ? description : "No description available.",
+            userMessage
         );
-        return callClaude(prompt);
+        return callLLM(prompt);
     }
 
-    private String callClaude(String prompt) {
-        if (apiKey == null || apiKey.isBlank()) {
-            return "AI features are not configured. Add your Anthropic API key to application.yml under ai.api.key.";
-        }
-
+    private String callLLM(String prompt) {
+        // OpenAI-compatible request format (used by Unsloth Studio / llama.cpp servers)
         var requestBody = Map.of(
-            "model", "claude-haiku-4-5-20251001",
+            "model", model,
             "max_tokens", 512,
             "messages", List.of(Map.of("role", "user", "content", prompt))
         );
@@ -52,19 +57,23 @@ public class AIService {
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restClient.post()
-                    .uri("https://api.anthropic.com/v1/messages")
-                    .header("x-api-key", apiKey)
-                    .header("anthropic-version", "2023-06-01")
+                    .uri(baseUrl + "/v1/chat/completions")
+                    .header("Authorization", "Bearer " + apiKey)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()
                     .body(Map.class);
 
+            // OpenAI-compatible response: choices[0].message.content
             @SuppressWarnings("unchecked")
-            var content = (List<Map<String, Object>>) response.get("content");
-            return content.get(0).get("text").toString();
+            var choices = (List<Map<String, Object>>) response.get("choices");
+            @SuppressWarnings("unchecked")
+            var message = (Map<String, Object>) choices.get(0).get("message");
+            return message.get("content").toString().trim();
+
         } catch (Exception e) {
-            return "AI assistant is temporarily unavailable. Please try again later.";
+            return "AI assistant unavailable. Make sure Unsloth Studio is running at " + baseUrl +
+                   " and the model is loaded.";
         }
     }
 }
