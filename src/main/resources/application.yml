@@ -49,7 +49,6 @@ jwt:
   secret: ${JWT_SECRET:dGhpcy1pcy1hLXZlcnktc2VjdXJlLXNlY3JldC1rZXktZm9yLWNhbXB1c3RpeC0yMDI1}
 
 ai:
-  # Unsloth Studio local server (run: unsloth studio -p 8888, API usually on 8080)
-  base-url: ${AI_BASE_URL:http://localhost:8080}
-  api-key: ${AI_API_KEY:sk-unsloth-placeholder}
+  base-url: ${AI_BASE_URL:http://127.0.0.1:8888}
+  api-key: ${AI_API_KEY:sk-unsloth-350793328ec378071ad9179d619f1bf4}
   model: ${AI_MODEL:unsloth/Qwen2.5-7B-Instruct-GGUF}
