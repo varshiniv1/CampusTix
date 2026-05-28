@@ -14,7 +14,7 @@ public class AIService {
     @Value("${ai.base-url:https://generativelanguage.googleapis.com/v1beta/openai}")
     private String baseUrl;
 
-    @Value("${ai.api-key:your-gemini-api-key}")
+    @Value("${ai.api-key:AIzaSyA0XcH4MfNHdZxIdXIRpSomSPu5aslkR_Y}")
     private String apiKey;
 
     @Value("${ai.model:gemini-2.0-flash}")
