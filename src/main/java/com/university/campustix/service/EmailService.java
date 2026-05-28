@@ -2,9 +2,12 @@ package com.university.campustix.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import jakarta.activation.DataHandler;
 import jakarta.mail.*;
 import jakarta.mail.internet.*;
+import jakarta.mail.util.ByteArrayDataSource;
 import java.io.UnsupportedEncodingException;
+import java.util.Base64;
 import java.util.Properties;
 
 @Service
@@ -36,10 +39,11 @@ public class EmailService {
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
             message.setSubject("Your CampusTix Ticket: " + eventName);
 
+            // QR block references the CID inline attachment
             String qrBlock = qrCodeBase64 != null
                 ? "<div style='text-align:center;margin:24px 0;'>" +
                   "<p style='color:#94a3b8;font-size:12px;margin-bottom:12px;text-transform:uppercase;letter-spacing:2px;'>SCAN TO VERIFY</p>" +
-                  "<img src='data:image/png;base64," + qrCodeBase64 + "' style='width:180px;height:180px;border-radius:12px;border:2px solid #4f46e5;'>" +
+                  "<img src='cid:qrcode' style='width:180px;height:180px;border-radius:12px;border:2px solid #4f46e5;'>" +
                   "</div>"
                 : "";
 
@@ -64,7 +68,23 @@ public class EmailService {
                 eventName, name, seatNum, venue, time, qrBlock
             );
 
-            message.setContent(htmlContent, "text/html");
+            // Build multipart/related so the QR image is a proper inline CID attachment
+            MimeBodyPart htmlPart = new MimeBodyPart();
+            htmlPart.setContent(htmlContent, "text/html; charset=UTF-8");
+
+            MimeMultipart multipart = new MimeMultipart("related");
+            multipart.addBodyPart(htmlPart);
+
+            if (qrCodeBase64 != null) {
+                byte[] qrBytes = Base64.getDecoder().decode(qrCodeBase64);
+                MimeBodyPart imagePart = new MimeBodyPart();
+                imagePart.setDataHandler(new DataHandler(new ByteArrayDataSource(qrBytes, "image/png")));
+                imagePart.setHeader("Content-ID", "<qrcode>");
+                imagePart.setHeader("Content-Disposition", "inline; filename=\"qrcode.png\"");
+                multipart.addBodyPart(imagePart);
+            }
+
+            message.setContent(multipart);
             Transport.send(message);
             System.out.println("Ticket dispatched to: " + toEmail);
 
