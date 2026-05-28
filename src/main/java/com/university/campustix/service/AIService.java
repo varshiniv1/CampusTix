@@ -72,7 +72,13 @@ public class AIService {
             return message.get("content").toString().trim();
 
         } catch (Exception e) {
-            return "AI assistant unavailable. Set AI_API_KEY to your Gemini API key (free at aistudio.google.com).";
+            System.err.println("=== AI CALL FAILED ===");
+            System.err.println("URL: " + baseUrl + "/chat/completions");
+            System.err.println("Model: " + model);
+            System.err.println("Error type: " + e.getClass().getSimpleName());
+            System.err.println("Error: " + e.getMessage());
+            if (e.getCause() != null) System.err.println("Cause: " + e.getCause().getMessage());
+            return "AI assistant unavailable. (" + e.getClass().getSimpleName() + ": " + e.getMessage() + ")";
         }
     }
 }
