@@ -29,12 +29,13 @@ public class TicketController {
     public ResponseEntity<String> claimTicket(
             @RequestParam String studentId,
             @RequestParam String seatId,
-            @RequestParam String studentName) {
+            @RequestParam String studentName,
+            @RequestParam(required = false) String paymentIntentId) {
 
         if (!rateLimiter.isAllowed(studentId)) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body("Rate limit hit.");
         }
-        bookingService.processBooking(studentId, Long.parseLong(seatId), studentName);
+        bookingService.processBooking(studentId, Long.parseLong(seatId), studentName, paymentIntentId);
         return ResponseEntity.accepted().body("Request queued!");
     }
 }

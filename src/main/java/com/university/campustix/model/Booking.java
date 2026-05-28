@@ -37,4 +37,12 @@ public class Booking {
 
     @Column(columnDefinition = "TEXT")
     private String qrCodeBase64;
+
+    private String paymentIntentId;
+
+    @Builder.Default
+    private Boolean reminded24h = false;
+
+    @Builder.Default
+    private Boolean reminded1h = false;
 }

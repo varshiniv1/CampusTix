@@ -94,6 +94,54 @@ public class EmailService {
         }
     }
 
+    public void sendReminder(String toEmail, String name, String eventName,
+                             String venue, String eventTime, String timeUntil, String seatNum) {
+        Properties props = new Properties();
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", "true");
+        props.put("mail.smtp.host", "smtp.gmail.com");
+        props.put("mail.smtp.port", "587");
+
+        Session session = Session.getInstance(props, new Authenticator() {
+            protected PasswordAuthentication getPasswordAuthentication() {
+                return new PasswordAuthentication(fromEmail, appPassword);
+            }
+        });
+
+        try {
+            Message message = new MimeMessage(session);
+            message.setFrom(new InternetAddress(fromEmail, "CampusTix"));
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
+            message.setSubject("Reminder: " + eventName + " starts in " + timeUntil + "!");
+
+            String html = String.format(
+                "<div style='background:#06081C;color:white;padding:40px;font-family:\"Inter\",sans-serif;max-width:520px;margin:0 auto;border-radius:24px;'>" +
+                "<div style='text-align:center;margin-bottom:28px;'>" +
+                "<span style='background:#4f46e5;color:white;padding:8px 20px;border-radius:50px;font-size:13px;font-weight:800;letter-spacing:3px;text-transform:uppercase;'>Campus Tix</span>" +
+                "</div>" +
+                "<div style='background:#0E1028;border:1px solid #1e2d5a;border-radius:20px;padding:28px;'>" +
+                "<p style='color:#f59e0b;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:3px;margin:0 0 8px;'>Event Reminder · %s</p>" +
+                "<h2 style='color:white;font-size:22px;font-weight:800;margin:0 0 16px;'>%s</h2>" +
+                "<table style='width:100%%;border-collapse:collapse;'>" +
+                "<tr><td style='color:#64748b;font-size:12px;padding:8px 0;border-bottom:1px solid #1e2d5a;'>ATTENDEE</td><td style='color:white;font-size:13px;font-weight:600;padding:8px 0;border-bottom:1px solid #1e2d5a;text-align:right;'>%s</td></tr>" +
+                "<tr><td style='color:#64748b;font-size:12px;padding:8px 0;border-bottom:1px solid #1e2d5a;'>SEAT</td><td style='color:#818cf8;font-size:18px;font-weight:900;padding:8px 0;border-bottom:1px solid #1e2d5a;text-align:right;'>%s</td></tr>" +
+                "<tr><td style='color:#64748b;font-size:12px;padding:8px 0;border-bottom:1px solid #1e2d5a;'>VENUE</td><td style='color:white;font-size:13px;font-weight:600;padding:8px 0;border-bottom:1px solid #1e2d5a;text-align:right;'>%s</td></tr>" +
+                "<tr><td style='color:#64748b;font-size:12px;padding:8px 0;'>DATE & TIME</td><td style='color:white;font-size:13px;font-weight:600;padding:8px 0;text-align:right;'>%s</td></tr>" +
+                "</table>" +
+                "</div>" +
+                "<p style='color:#475569;font-size:11px;text-align:center;margin-top:20px;'>This is an automated reminder. Present your QR code ticket at the entrance.</p>" +
+                "</div>",
+                timeUntil, eventName, name != null ? name : "Attendee", seatNum, venue != null ? venue : "TBD", eventTime
+            );
+
+            message.setContent(html, "text/html; charset=UTF-8");
+            Transport.send(message);
+            System.out.println("Reminder sent to: " + toEmail);
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            System.err.println("=== REMINDER EMAIL FAILED: " + e.getMessage());
+        }
+    }
+
     public void sendWaitlistNotification(String toEmail, String name, String eventName) {
         Properties props = new Properties();
         props.put("mail.smtp.auth", "true");

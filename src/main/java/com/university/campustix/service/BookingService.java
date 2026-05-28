@@ -34,10 +34,23 @@ public class BookingService {
     @Async
     @Transactional
     public void processBooking(String email, Long seatId, String name) {
+        processBooking(email, seatId, name, null);
+    }
+
+    @Async
+    @Transactional
+    public void processBooking(String email, Long seatId, String name, String paymentIntentId) {
         String channel = "/topic/status/" + toChannelSuffix(email);
         try {
             Seat seat = seatRepository.findById(seatId).orElseThrow();
             Event event = eventRepository.findById(seat.getEvent().getId()).orElseThrow();
+
+            // Duplicate booking prevention
+            if (bookingRepository.existsByBuyerEmailAndEvent_IdAndStatusNot(email, event.getId(), "CANCELLED")) {
+                messagingTemplate.convertAndSend(channel,
+                    "ERROR: You already have a confirmed ticket for this event.");
+                return;
+            }
 
             seat.setStatus("SOLD");
             seatRepository.save(seat);
@@ -58,6 +71,7 @@ public class BookingService {
                 .bookedAt(LocalDateTime.now())
                 .status("CONFIRMED")
                 .qrCodeBase64(qrCode)
+                .paymentIntentId(paymentIntentId)
                 .build();
             userRepository.findByEmail(email).ifPresent(booking::setUser);
             bookingRepository.save(booking);

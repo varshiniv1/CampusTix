@@ -129,35 +129,90 @@
 <!-- ─── Checkout Modal ─── -->
 <div id="checkout-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
     <div class="bg-[#0E1028] border border-white/10 p-8 rounded-[2rem] max-w-sm w-full shadow-2xl">
-        <h3 class="text-xl font-black text-white mb-1">Complete Purchase</h3>
-        <p id="selected-seat-label" class="text-indigo-400 text-xs font-mono mb-6 uppercase tracking-widest"></p>
 
-        <div class="space-y-3">
-            <input id="form-email" type="email" placeholder="Email address (any email)"
-                class="w-full bg-white/5 border border-white/10 rounded-xl p-3.5 text-sm outline-none focus:border-indigo-500/60 transition-all placeholder-slate-600">
-            <input id="form-name" type="text" placeholder="Full name"
-                class="w-full bg-white/5 border border-white/10 rounded-xl p-3.5 text-sm outline-none focus:border-indigo-500/60 transition-all placeholder-slate-600">
+        <!-- Step 1: Contact info -->
+        <div id="step-contact">
+            <div class="flex items-center gap-2 mb-1">
+                <div class="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-black">1</div>
+                <h3 class="text-xl font-black text-white">Your Details</h3>
+            </div>
+            <p id="selected-seat-label" class="text-indigo-400 text-xs font-mono mb-5 uppercase tracking-widest pl-7"></p>
+            <div class="space-y-3">
+                <input id="form-email" type="email" placeholder="Email address"
+                    class="w-full bg-white/5 border border-white/10 rounded-xl p-3.5 text-sm outline-none focus:border-indigo-500/60 transition-all placeholder-slate-600">
+                <input id="form-name" type="text" placeholder="Full name"
+                    class="w-full bg-white/5 border border-white/10 rounded-xl p-3.5 text-sm outline-none focus:border-indigo-500/60 transition-all placeholder-slate-600">
+                <button onclick="goToPayment()"
+                    class="w-full bg-indigo-600 hover:bg-indigo-500 py-3.5 rounded-2xl font-black uppercase tracking-widest text-sm transition-all active:scale-[0.98]">
+                    Continue to Payment
+                </button>
+                <button onclick="closeModal()" class="w-full text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest py-2 transition-all">Cancel</button>
+            </div>
+        </div>
 
-            <div class="bg-black/30 p-4 rounded-xl border border-white/8">
-                <p class="text-[10px] text-slate-600 font-bold mb-2 uppercase tracking-widest">Demo Payment</p>
-                <p class="text-sm font-mono text-slate-400 tracking-widest">4242 4242 4242 4242</p>
-                <div class="flex gap-4 mt-2">
-                    <p class="text-xs font-mono text-slate-600">12/28</p>
-                    <p class="text-xs font-mono text-slate-600">123</p>
+        <!-- Step 2: Payment -->
+        <div id="step-payment" class="hidden">
+            <div class="flex items-center gap-2 mb-5">
+                <button onclick="backToContact()" class="text-slate-500 hover:text-white transition-colors mr-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                </button>
+                <div class="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-black">2</div>
+                <h3 class="text-xl font-black text-white">Payment</h3>
+            </div>
+
+            <!-- Order summary -->
+            <div class="bg-white/4 border border-white/8 rounded-2xl p-4 mb-4">
+                <div class="flex justify-between items-center text-sm mb-1">
+                    <span class="text-slate-400">1× Ticket · <span id="pay-seat-label" class="text-indigo-400 font-mono"></span></span>
+                    <span id="pay-amount" class="font-black text-white"></span>
+                </div>
+                <div class="flex justify-between items-center text-xs text-slate-600">
+                    <span>Service fee</span><span>$0.00</span>
+                </div>
+                <div class="border-t border-white/8 mt-2 pt-2 flex justify-between text-sm font-black">
+                    <span class="text-slate-300">Total</span><span id="pay-total" class="text-green-400"></span>
                 </div>
             </div>
 
-            <div id="modal-price" class="flex justify-between items-center py-2 border-t border-white/8 text-sm">
-                <span class="text-slate-400">Total</span>
-                <span class="font-black text-white text-lg"></span>
+            <!-- Card form (mock Stripe UI) -->
+            <div class="space-y-3 mb-4">
+                <div>
+                    <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1.5">Card Number</label>
+                    <input id="card-number" type="text" placeholder="4242 4242 4242 4242" maxlength="19"
+                        oninput="formatCard(this)"
+                        class="w-full bg-white/5 border border-white/10 rounded-xl p-3.5 text-sm font-mono outline-none focus:border-indigo-500/60 transition-all placeholder-slate-700">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1.5">Expiry</label>
+                        <input id="card-expiry" type="text" placeholder="MM / YY" maxlength="7"
+                            oninput="formatExpiry(this)"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl p-3.5 text-sm font-mono outline-none focus:border-indigo-500/60 transition-all placeholder-slate-700">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest block mb-1.5">CVC</label>
+                        <input id="card-cvc" type="text" placeholder="123" maxlength="3"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl p-3.5 text-sm font-mono outline-none focus:border-indigo-500/60 transition-all placeholder-slate-700">
+                    </div>
+                </div>
             </div>
 
-            <button onclick="submitBooking()"
-                class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl font-black uppercase tracking-widest text-sm transition-all shadow-xl shadow-indigo-600/20 active:scale-[0.98]">
-                Confirm & Pay
+            <p class="text-[10px] text-slate-600 text-center mb-3 flex items-center justify-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                Payments are processed securely. Test card: 4242 4242 4242 4242
+            </p>
+
+            <!-- Pay button -->
+            <button id="pay-btn" onclick="submitPayment()"
+                class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl font-black uppercase tracking-widest text-sm transition-all shadow-xl shadow-indigo-600/20 active:scale-[0.98] flex items-center justify-center gap-2">
+                <span id="pay-btn-text">Pay Now</span>
+                <svg id="pay-spinner" class="hidden animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
             </button>
-            <button onclick="closeModal()" class="w-full text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest py-2 transition-all">Cancel</button>
         </div>
+
     </div>
 </div>
 
@@ -343,13 +398,16 @@
         currentSeatId = id;
         currentSeatName = name;
         document.getElementById('selected-seat-label').textContent = `Seat ${name}`;
-        document.getElementById('modal-price').querySelector('span.font-black').textContent = '$' + Number(eventPrice).toFixed(2);
 
         const user = JSON.parse(localStorage.getItem('campustix_user') || 'null');
         if (user) {
             document.getElementById('form-email').value = user.email;
             document.getElementById('form-name').value = user.name;
         }
+
+        // Always start at step 1
+        document.getElementById('step-contact').classList.remove('hidden');
+        document.getElementById('step-payment').classList.add('hidden');
         document.getElementById('checkout-modal').classList.remove('hidden');
     }
 
@@ -357,25 +415,91 @@
         document.getElementById('checkout-modal').classList.add('hidden');
     }
 
-    async function submitBooking() {
+    function goToPayment() {
         const email = document.getElementById('form-email').value.trim();
-        const name = document.getElementById('form-name').value.trim();
+        const name  = document.getElementById('form-name').value.trim();
         if (!email || !email.includes('@') || !name) {
             addLog('Please enter a valid name and email.', 'text-orange-400');
             return;
         }
-        STUDENT_EMAIL = email;
-        closeModal();
-        addLog(`Processing ticket for ${name} (${email})...`, 'text-indigo-400');
-        if (!stompClient?.connected) connect();
+        const priceStr = '$' + Number(eventPrice).toFixed(2);
+        document.getElementById('pay-seat-label').textContent = currentSeatName;
+        document.getElementById('pay-amount').textContent = priceStr;
+        document.getElementById('pay-total').textContent  = priceStr;
+        document.getElementById('pay-btn-text').textContent = `Pay ${priceStr}`;
+        document.getElementById('step-contact').classList.add('hidden');
+        document.getElementById('step-payment').classList.remove('hidden');
+    }
 
-        const res = await fetch(
-            `/api/v1/tickets/claim?studentId=${encodeURIComponent(email)}&seatId=${currentSeatId}&studentName=${encodeURIComponent(name)}`,
-            { method: 'POST' }
-        );
-        if (res.status === 429) addLog('Rate limit: please wait 5 seconds before retrying.', 'text-orange-400');
-        else if (res.ok) addLog('Payment accepted. Ticket is being processed...', 'text-green-400');
-        else addLog('Request failed. Please try again.', 'text-red-400');
+    function backToContact() {
+        document.getElementById('step-payment').classList.add('hidden');
+        document.getElementById('step-contact').classList.remove('hidden');
+    }
+
+    function formatCard(input) {
+        let v = input.value.replace(/\D/g, '').substring(0, 16);
+        input.value = v.replace(/(.{4})/g, '$1 ').trim();
+    }
+
+    function formatExpiry(input) {
+        let v = input.value.replace(/\D/g, '').substring(0, 4);
+        if (v.length >= 3) v = v.substring(0, 2) + ' / ' + v.substring(2);
+        input.value = v;
+    }
+
+    async function submitPayment() {
+        const email = document.getElementById('form-email').value.trim();
+        const name  = document.getElementById('form-name').value.trim();
+
+        const btn = document.getElementById('pay-btn');
+        btn.disabled = true;
+        document.getElementById('pay-btn-text').textContent = 'Processing…';
+        document.getElementById('pay-spinner').classList.remove('hidden');
+
+        try {
+            STUDENT_EMAIL = email;
+            if (!stompClient?.connected) connect();
+
+            // Step 1: Create payment intent
+            const intentRes = await fetch(
+                `/api/v1/payments/create-intent?amount=${eventPrice}&description=${encodeURIComponent(name + ' - ' + currentSeatName)}`,
+                { method: 'POST' }
+            );
+            if (!intentRes.ok) throw new Error('Failed to create payment intent');
+            const intent = await intentRes.json();
+
+            // Step 2: Confirm payment (simulated processing delay)
+            await new Promise(r => setTimeout(r, 800));
+            const confirmRes = await fetch(
+                `/api/v1/payments/confirm?paymentIntentId=${encodeURIComponent(intent.id)}`,
+                { method: 'POST' }
+            );
+            if (!confirmRes.ok) throw new Error('Payment confirmation failed');
+            const confirmation = await confirmRes.json();
+            if (confirmation.status !== 'succeeded') throw new Error('Payment declined');
+
+            closeModal();
+            addLog(`Payment of $${Number(eventPrice).toFixed(2)} confirmed. Issuing ticket…`, 'text-green-400');
+
+            // Step 3: Claim ticket with paymentIntentId
+            const claimRes = await fetch(
+                `/api/v1/tickets/claim?studentId=${encodeURIComponent(email)}&seatId=${currentSeatId}&studentName=${encodeURIComponent(name)}&paymentIntentId=${encodeURIComponent(intent.id)}`,
+                { method: 'POST' }
+            );
+            if (claimRes.status === 409) {
+                addLog('You already have a ticket for this event.', 'text-orange-400');
+            } else if (claimRes.status === 429) {
+                addLog('Rate limit hit — please wait a moment and try again.', 'text-orange-400');
+            } else if (!claimRes.ok) {
+                addLog('Ticket claim failed. Please try again.', 'text-red-400');
+            }
+        } catch (err) {
+            addLog('Payment failed: ' + err.message, 'text-red-400');
+        } finally {
+            btn.disabled = false;
+            document.getElementById('pay-btn-text').textContent = 'Pay Now';
+            document.getElementById('pay-spinner').classList.add('hidden');
+        }
     }
 
     function showSuccessState(ref) {

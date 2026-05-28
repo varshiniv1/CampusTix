@@ -4,12 +4,15 @@ import com.university.campustix.dto.BookingResponse;
 import com.university.campustix.model.Booking;
 import com.university.campustix.repository.BookingRepository;
 import com.university.campustix.service.BookingService;
+import com.university.campustix.service.PdfTicketService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -20,6 +23,7 @@ public class BookingController {
 
     private final BookingRepository bookingRepository;
     private final BookingService bookingService;
+    private final PdfTicketService pdfTicketService;
 
     @Operation(summary = "Get all bookings for a given email address")
     @GetMapping("/by-email")
@@ -37,6 +41,18 @@ public class BookingController {
             @RequestParam String email) {
         bookingService.cancelBooking(id, email);
         return ResponseEntity.accepted().body("Cancellation processing.");
+    }
+
+    @Operation(summary = "Download a PDF ticket by booking reference")
+    @GetMapping("/{ref}/pdf")
+    public ResponseEntity<byte[]> downloadPdf(@PathVariable String ref) throws IOException {
+        Booking booking = bookingRepository.findByBookingReference(ref)
+            .orElseThrow(() -> new RuntimeException("Booking not found: " + ref));
+        byte[] pdf = pdfTicketService.generate(booking);
+        return ResponseEntity.ok()
+            .header("Content-Disposition", "attachment; filename=\"ticket-" + ref + ".pdf\"")
+            .contentType(MediaType.APPLICATION_PDF)
+            .body(pdf);
     }
 
     private BookingResponse toResponse(Booking b) {

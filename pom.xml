@@ -90,6 +90,13 @@
 			<version>2.3.0</version>
 		</dependency>
 
+		<!-- PDF Ticket Generation -->
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox</artifactId>
+			<version>3.0.4</version>
+		</dependency>
+
 		<!-- QR Code -->
 		<dependency>
 			<groupId>com.google.zxing</groupId>

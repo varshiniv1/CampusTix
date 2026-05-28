@@ -3,116 +3,202 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CampusTix | Marketplace</title>
+    <title>CampusTix | Events</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
+        .cat-btn.active { background: #4f46e5; color: white; border-color: #4f46e5; }
     </style>
 </head>
-<body class="bg-[#0b0f1a] text-slate-200 min-h-screen p-8">
+<body class="bg-[#06081C] text-white min-h-screen">
 
-<div class="max-w-6xl mx-auto">
-    <header class="mb-16 flex justify-between items-end">
-        <div>
-            <p class="text-indigo-500 font-black uppercase tracking-[0.3em] text-xs mb-2">UMass Amherst</p>
-            <h1 class="text-6xl font-black text-white tracking-tighter uppercase italic">Live Events</h1>
+<!-- Nav -->
+<nav class="sticky top-0 z-50 bg-[#06081C]/95 backdrop-blur-md border-b border-white/5">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <a href="/" class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-black text-sm">C</div>
+            <span class="text-lg font-black tracking-tight">Campus<span class="text-indigo-400">Tix</span></span>
+        </a>
+        <div class="flex items-center gap-3">
+            <a href="/my-tickets" class="text-sm text-slate-400 hover:text-white transition-colors">My Tickets</a>
+            <a href="/admin" class="text-xs font-bold border border-slate-700 hover:border-indigo-500 px-4 py-2 rounded-full transition-all tracking-widest">ADMIN</a>
         </div>
-        <div class="flex gap-4">
-            <a href="/admin" class="text-[10px] font-bold border border-slate-800 px-6 py-3 rounded-full hover:bg-white hover:text-black transition-all tracking-widest">ADMIN PORTAL</a>
-        </div>
-    </header>
+    </div>
+</nav>
 
-    <div id="event-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+<!-- Hero -->
+<div class="max-w-6xl mx-auto px-6 pt-12 pb-6">
+    <p class="text-indigo-400 font-black uppercase tracking-[0.3em] text-xs mb-2">UMass Amherst</p>
+    <h1 class="text-5xl font-black tracking-tighter text-white mb-8">Live Events</h1>
+
+    <!-- Search bar -->
+    <div class="relative mb-5">
+        <svg class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input id="search-input" type="text" placeholder="Search events, venues, categories…"
+            class="w-full bg-[#0E1028] border border-white/10 rounded-2xl pl-11 pr-4 py-3.5 text-sm outline-none focus:border-indigo-500/60 transition-all placeholder-slate-600"
+            oninput="debounceSearch()">
+    </div>
+
+    <!-- Filter row -->
+    <div class="flex flex-wrap items-center gap-3 mb-3">
+        <!-- Category pills -->
+        <div class="flex flex-wrap gap-2" id="cat-filters">
+            <button class="cat-btn active text-[11px] font-bold px-3 py-1.5 rounded-full border border-white/10 transition-all" data-cat="ALL">All</button>
+            <button class="cat-btn text-[11px] font-bold px-3 py-1.5 rounded-full border border-white/10 text-slate-400 hover:text-white transition-all" data-cat="MUSIC">Music</button>
+            <button class="cat-btn text-[11px] font-bold px-3 py-1.5 rounded-full border border-white/10 text-slate-400 hover:text-white transition-all" data-cat="SPORTS">Sports</button>
+            <button class="cat-btn text-[11px] font-bold px-3 py-1.5 rounded-full border border-white/10 text-slate-400 hover:text-white transition-all" data-cat="COMEDY">Comedy</button>
+            <button class="cat-btn text-[11px] font-bold px-3 py-1.5 rounded-full border border-white/10 text-slate-400 hover:text-white transition-all" data-cat="ARTS">Arts</button>
+            <button class="cat-btn text-[11px] font-bold px-3 py-1.5 rounded-full border border-white/10 text-slate-400 hover:text-white transition-all" data-cat="FAMILY">Family</button>
+            <button class="cat-btn text-[11px] font-bold px-3 py-1.5 rounded-full border border-white/10 text-slate-400 hover:text-white transition-all" data-cat="OTHER">Other</button>
+        </div>
+
+        <!-- Spacer -->
+        <div class="flex-1"></div>
+
+        <!-- Sort + price -->
+        <div class="flex items-center gap-2">
+            <select id="sort-select" onchange="doSearch()"
+                class="bg-[#0E1028] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-300 outline-none focus:border-indigo-500/50 cursor-pointer">
+                <option value="date">Sort: Date</option>
+                <option value="price_asc">Price: Low → High</option>
+                <option value="price_desc">Price: High → Low</option>
+            </select>
+            <input id="min-price" type="number" placeholder="Min $" min="0"
+                class="w-20 bg-[#0E1028] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-300 outline-none focus:border-indigo-500/50"
+                oninput="debounceSearch()">
+            <input id="max-price" type="number" placeholder="Max $" min="0"
+                class="w-20 bg-[#0E1028] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-300 outline-none focus:border-indigo-500/50"
+                oninput="debounceSearch()">
+        </div>
+    </div>
+
+    <!-- Result count -->
+    <p id="result-count" class="text-slate-500 text-xs mb-6"></p>
+</div>
+
+<!-- Event grid -->
+<div class="max-w-6xl mx-auto px-6 pb-16">
+    <div id="event-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div class="col-span-full text-center py-20">
-            <div class="animate-pulse text-slate-500 font-mono text-sm">Synchronizing with Event Stream...</div>
+            <div class="animate-pulse text-slate-500 font-mono text-sm">Loading events…</div>
         </div>
     </div>
 </div>
 
 <script>
-    async function loadEvents() {
+    let activeCategory = 'ALL';
+    let searchTimer = null;
+
+    // Category pill click
+    document.getElementById('cat-filters').addEventListener('click', e => {
+        const btn = e.target.closest('.cat-btn');
+        if (!btn) return;
+        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active', 'text-white'));
+        btn.classList.add('active');
+        activeCategory = btn.dataset.cat;
+        doSearch();
+    });
+
+    function debounceSearch() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(doSearch, 280);
+    }
+
+    async function doSearch() {
+        const q        = document.getElementById('search-input').value.trim();
+        const sort     = document.getElementById('sort-select').value;
+        const minPrice = document.getElementById('min-price').value;
+        const maxPrice = document.getElementById('max-price').value;
+
+        const params = new URLSearchParams({ sort });
+        if (q)               params.set('q', q);
+        if (activeCategory !== 'ALL') params.set('category', activeCategory);
+        if (minPrice)        params.set('minPrice', minPrice);
+        if (maxPrice)        params.set('maxPrice', maxPrice);
+
         try {
-            // API call to fetch all events from the AdminController
-            const res = await fetch('/api/v1/admin/events/all');
+            const res    = await fetch('/api/v1/events/search?' + params);
             const events = await res.json();
-            const container = document.getElementById('event-list');
-            container.innerHTML = '';
-
-            if (!events || events.length === 0) {
-                container.innerHTML = `
-                    <div class="col-span-full text-center py-20 border-2 border-dashed border-slate-800 rounded-[3rem]">
-                        <p class="text-slate-500 font-medium">No active events found in the database.</p>
-                        <p class="text-slate-600 text-xs mt-2">Use the Admin Portal to publish new events.</p>
-                    </div>`;
-                return;
-            }
-
-            events.forEach(ev => {
-                const now = new Date();
-                
-                // Expiry Logic: Fallback to +24 hours if expiryDate is missing
-                const expiry = ev.expiryDate ? new Date(ev.expiryDate) : new Date(now.getTime() + 86400000);
-                const isExpired = now > expiry;
-
-                // Time remaining calculation
-                const diffTime = expiry - now;
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                
-                let statusText = isExpired ? "EXPIRED" : `${diffDays} Days Left`;
-                if (!ev.expiryDate) statusText = "ONGOING";
-
-                // Dynamic HTML Injection with Tailwind Styles
-                container.innerHTML += `
-                <div class="group relative bg-slate-900 border border-slate-800 rounded-[2.5rem] overflow-hidden transition-all duration-500 shadow-2xl 
-                                     ${isExpired ? 'opacity-40 grayscale blur-[1px]' : 'hover:border-indigo-500'}">
-
-                    <div class="h-64 overflow-hidden relative">
-                        <img src="${ev.imageUrl || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4'}"
-                             class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-                             alt="${ev.name}">
-
-                        <div class="absolute top-4 left-6 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black tracking-tighter 
-                                             ${isExpired ? 'text-red-500 border border-red-500/30' : 'text-green-400 border border-green-400/30'}">
-                            ${statusText}
-                        </div>
-                        
-                        <div class="absolute bottom-4 left-6">
-                            <span class="bg-indigo-600 px-3 py-1 rounded-full text-[10px] font-black uppercase text-white shadow-lg">
-                                $${ev.price}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div class="p-8">
-                        <p class="text-indigo-500 text-[10px] font-black uppercase tracking-widest mb-1">
-                            ${ev.eventTime ? new Date(ev.eventTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date TBD'}
-                        </p>
-                        <h3 class="text-2xl font-bold text-white mb-2 leading-tight tracking-tight">${ev.name}</h3>
-                        <p class="text-slate-500 text-xs mb-8 flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-600"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                            ${ev.venue}
-                        </p>
-                        
-                        ${isExpired ?
-                        `<button class="w-full py-4 rounded-2xl text-xs font-black bg-slate-800 text-slate-500 cursor-not-allowed uppercase tracking-widest">Closed</button>` :
-                        `<a href="/booking/${ev.id}" class="block text-center bg-white text-black py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-500 hover:text-white transition-all transform active:scale-95 shadow-xl shadow-white/5">Get Tickets</a>`
-                        }
-                    </div>
-                </div>`;
-            });
+            renderEvents(events);
         } catch (err) {
-            console.error("Dashboard error:", err);
-            document.getElementById('event-list').innerHTML = `
-                <div class="col-span-full text-center py-10 text-red-400 font-mono text-xs">
-                    [ERROR] Failed to fetch event stream. Check backend console.
-                </div>`;
+            document.getElementById('event-list').innerHTML =
+                `<div class="col-span-full text-center py-10 text-red-400 font-mono text-xs">[ERROR] Failed to load events.</div>`;
         }
     }
 
-    // Initialize load on page ready
-    document.addEventListener('DOMContentLoaded', loadEvents);
-</script>
+    function renderEvents(events) {
+        const container = document.getElementById('event-list');
+        const count = document.getElementById('result-count');
+        count.textContent = events.length === 0 ? 'No events found' : `${events.length} event${events.length !== 1 ? 's' : ''} found`;
 
+        if (events.length === 0) {
+            container.innerHTML = `
+                <div class="col-span-full text-center py-20 border-2 border-dashed border-white/5 rounded-3xl">
+                    <p class="text-4xl mb-4">🎟️</p>
+                    <p class="text-slate-400 font-semibold">No events match your search</p>
+                    <p class="text-slate-600 text-xs mt-2">Try a different keyword or clear your filters</p>
+                </div>`;
+            return;
+        }
+
+        const now = new Date();
+        container.innerHTML = events.map(ev => {
+            const expiry    = ev.expiryDate ? new Date(ev.expiryDate) : new Date(now.getTime() + 86400000);
+            const isExpired = now > expiry;
+            const diffDays  = Math.ceil((expiry - now) / 86400000);
+            const statusText = isExpired ? 'ENDED' : (diffDays <= 1 ? 'TODAY' : `${diffDays}d left`);
+            const statusColor = isExpired ? 'text-red-500 border-red-500/30' : (diffDays <= 1 ? 'text-amber-400 border-amber-400/30' : 'text-green-400 border-green-400/30');
+            const dateStr   = ev.eventTime
+                ? new Date(ev.eventTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                : 'Date TBD';
+            const catColors = { MUSIC:'bg-pink-500/20 text-pink-400', SPORTS:'bg-green-500/20 text-green-400', COMEDY:'bg-yellow-500/20 text-yellow-400', ARTS:'bg-purple-500/20 text-purple-400', FAMILY:'bg-blue-500/20 text-blue-400', OTHER:'bg-slate-500/20 text-slate-400' };
+            const catColor  = catColors[ev.category] || catColors.OTHER;
+
+            return `
+            <div class="group relative bg-[#0E1028] border border-white/8 rounded-3xl overflow-hidden transition-all duration-300
+                        ${isExpired ? 'opacity-40 grayscale' : 'hover:border-indigo-500/40 hover:shadow-2xl hover:shadow-indigo-900/20'}">
+                <div class="h-52 overflow-hidden relative">
+                    <img src="${ev.imageUrl || 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=800'}"
+                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                         onerror="this.src='https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=800'" alt="${ev.name}">
+                    <div class="absolute inset-0 bg-gradient-to-t from-[#0E1028] via-transparent to-transparent"></div>
+
+                    <!-- Status badge -->
+                    <div class="absolute top-3 left-3 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-full text-[10px] font-black border ${statusColor}">
+                        ${statusText}
+                    </div>
+
+                    <!-- Price badge -->
+                    <div class="absolute top-3 right-3 bg-indigo-600 px-2.5 py-1 rounded-full text-[11px] font-black text-white shadow-lg">
+                        $${Number(ev.price || 0).toFixed(2)}
+                    </div>
+
+                    <!-- Category badge -->
+                    ${ev.category ? `<div class="absolute bottom-3 left-3 ${catColor} text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">${ev.category}</div>` : ''}
+                </div>
+
+                <div class="p-5">
+                    <p class="text-indigo-400 text-[10px] font-black uppercase tracking-widest mb-1">${dateStr}</p>
+                    <h3 class="text-lg font-bold text-white mb-1.5 leading-tight">${ev.name}</h3>
+                    <p class="text-slate-500 text-xs mb-5 flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                        ${ev.venue || 'Venue TBD'}
+                    </p>
+
+                    ${isExpired
+                        ? `<button disabled class="w-full py-3 rounded-2xl text-xs font-black bg-white/5 text-slate-600 cursor-not-allowed uppercase tracking-widest">Event Ended</button>`
+                        : `<a href="/booking/${ev.id}" class="block text-center bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-[0.98] shadow-lg shadow-indigo-600/20">
+                               Get Tickets
+                           </a>`
+                    }
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // Initial load
+    doSearch();
+</script>
 </body>
 </html>
