@@ -39,3 +39,7 @@ ai:
   base-url: ${AI_BASE_URL:https://api.groq.com/openai/v1}
   api-key: ${AI_API_KEY:}
   model: ${AI_MODEL:llama-3.1-8b-instant}
+
+admin:
+  username: ${ADMIN_USERNAME:username}
+  password: ${ADMIN_PASSWORD:password}

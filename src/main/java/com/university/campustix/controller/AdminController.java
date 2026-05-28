@@ -5,6 +5,7 @@ import com.university.campustix.model.Seat;
 import com.university.campustix.repository.EventRepository;
 import com.university.campustix.repository.SeatRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -15,6 +16,11 @@ import java.util.List;
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
 public class AdminController {
+
+    @GetMapping("/auth")
+    public ResponseEntity<Void> checkAuth() {
+        return ResponseEntity.ok().build();
+    }
 
     private final EventRepository eventRepository;
     private final SeatRepository seatRepository;
