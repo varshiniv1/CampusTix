@@ -308,18 +308,24 @@
         }
     }
 
+    // datetime-local gives "YYYY-MM-DDTHH:mm" (no seconds); Java LocalDateTime needs seconds
+    function toIso(val) {
+        if (!val) return null;
+        return (val.length === 16) ? val + ':00' : val;
+    }
+
     async function deploy() {
         const data = {
             name: document.getElementById('evName').value,
             venue: document.getElementById('evVenue').value,
             venueAddress: document.getElementById('evAddress').value,
-            price: document.getElementById('evPrice').value,
+            price: parseFloat(document.getElementById('evPrice').value) || 0,
             imageUrl: document.getElementById('evImage').value,
             contactInfo: document.getElementById('evContact').value,
             description: document.getElementById('evDescription').value,
             category: document.getElementById('evCategory').value || 'OTHER',
-            eventTime: document.getElementById('evStartTime').value,
-            expiryDate: document.getElementById('evExpiryDate').value || null
+            eventTime: toIso(document.getElementById('evStartTime').value),
+            expiryDate: toIso(document.getElementById('evExpiryDate').value)
         };
         const count = document.getElementById('evSeats').value;
         const errEl = document.getElementById('deploy-error');

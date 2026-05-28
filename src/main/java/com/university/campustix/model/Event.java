@@ -22,6 +22,7 @@ public class Event {
     private Double price;
     private String imageUrl;
     private String contactInfo;
+    @Column(columnDefinition = "TEXT")
     private String description;
-    private String category; // MUSIC, SPORTS, COMEDY, ARTS, FAMILY, OTHER
+    private String category; // MUSIC, SPORTS, COMEDY, ARTS, MOVIES, FAMILY, OTHER
 }
