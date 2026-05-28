@@ -133,7 +133,6 @@
             });
             const data = await res.json();
             if (!res.ok) { showMsg(data.error || 'Login failed.', true); return; }
-            localStorage.setItem('campustix_token', data.token);
             localStorage.setItem('campustix_user', JSON.stringify({ name: data.name, email: data.email }));
             showMsg('Welcome back, ' + data.name + '! Redirecting...', false);
             setTimeout(() => window.location.href = new URLSearchParams(location.search).get('redirect') || '/', 1000);
@@ -156,7 +155,6 @@
             });
             const data = await res.json();
             if (!res.ok) { showMsg(data.error || 'Registration failed.', true); return; }
-            localStorage.setItem('campustix_token', data.token);
             localStorage.setItem('campustix_user', JSON.stringify({ name: data.name, email: data.email }));
             showMsg('Account created! Welcome, ' + data.name + '!', false);
             setTimeout(() => window.location.href = '/', 1200);
@@ -165,7 +163,7 @@
     }
 
     // Auto-redirect if already logged in
-    if (localStorage.getItem('campustix_token')) {
+    if (localStorage.getItem('campustix_user')) {
         window.location.href = '/';
     }
 </script>

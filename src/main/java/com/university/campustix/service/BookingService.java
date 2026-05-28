@@ -8,17 +8,19 @@ import com.university.campustix.repository.EventRepository;
 import com.university.campustix.repository.SeatRepository;
 import com.university.campustix.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class KafkaConsumerService {
+public class BookingService {
 
     private final SeatRepository seatRepository;
     private final EventRepository eventRepository;
@@ -28,20 +30,10 @@ public class KafkaConsumerService {
     private final QRCodeService qrCodeService;
     private final SimpMessagingTemplate messagingTemplate;
 
-    private String toChannelSuffix(String email) {
-        return java.util.Base64.getUrlEncoder().withoutPadding()
-                .encodeToString(email.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-    }
-
-    @KafkaListener(topics = "campustix-topic", groupId = "campustix-group")
+    @Async
     @Transactional
-    public void consumeBookingRequest(String message) {
-        // Message format: "email:seatId:name"
-        String[] parts = message.split(":");
-        String email = parts[0];
-        Long seatId = Long.parseLong(parts[1]);
-        String name = parts[2];
-
+    public void processBooking(String email, Long seatId, String name) {
+        String channel = "/topic/status/" + toChannelSuffix(email);
         try {
             Seat seat = seatRepository.findById(seatId).orElseThrow();
             Event event = eventRepository.findById(seat.getEvent().getId()).orElseThrow();
@@ -50,7 +42,6 @@ public class KafkaConsumerService {
             seatRepository.save(seat);
 
             String ref = "CT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-
             String qrContent = String.format(
                 "CAMPUSTIX TICKET\nRef: %s\nEvent: %s\nSeat: %s\nAttendee: %s\nVenue: %s",
                 ref, event.getName(), seat.getSeatNumber(), name, event.getVenue()
@@ -67,7 +58,6 @@ public class KafkaConsumerService {
                     .status("CONFIRMED")
                     .qrCodeBase64(qrCode)
                     .build();
-
             userRepository.findByEmail(email).ifPresent(booking::setUser);
             bookingRepository.save(booking);
 
@@ -78,16 +68,18 @@ public class KafkaConsumerService {
                     qrCode
             );
 
-            // Channel is derived from email so the specific client can subscribe to it
-            String channel = "/topic/status/" + toChannelSuffix(email);
             messagingTemplate.convertAndSend(channel,
                     "SUCCESS: Booking confirmed! Ref: " + ref + " | Seat: " + seat.getSeatNumber());
             messagingTemplate.convertAndSend("/topic/seats-update", "refresh");
 
         } catch (Exception e) {
-            e.printStackTrace();
-            messagingTemplate.convertAndSend("/topic/status/" + toChannelSuffix(email),
+            messagingTemplate.convertAndSend(channel,
                     "ERROR: Booking failed. The seat may have already been taken.");
         }
+    }
+
+    private String toChannelSuffix(String email) {
+        return Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(email.getBytes(StandardCharsets.UTF_8));
     }
 }

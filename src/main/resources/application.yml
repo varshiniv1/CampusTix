@@ -15,7 +15,7 @@ spring:
             enable: true
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/campustix}
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/campustix}
     username: ${DB_USERNAME:user}
     password: ${DB_PASSWORD:password}
     driver-class-name: org.postgresql.Driver
@@ -34,20 +34,8 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
 
-  kafka:
-    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
-    consumer:
-      group-id: campustix-group
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-
-jwt:
-  secret: ${JWT_SECRET:dGhpcy1pcy1hLXZlcnktc2VjdXJlLXNlY3JldC1rZXktZm9yLWNhbXB1c3RpeC0yMDI1}
 
 ai:
-  api:
-    key: ${ANTHROPIC_API_KEY:}
+  base-url: ${AI_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}
+  api-key: ${AI_API_KEY:AIzaSyA0XcH4MfNHdZxIdXIRpSomSPu5aslkR_Y}
+  model: ${AI_MODEL:gemini-2.0-flash}

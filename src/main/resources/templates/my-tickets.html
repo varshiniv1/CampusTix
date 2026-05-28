@@ -64,11 +64,9 @@
 </div>
 
 <script>
-    const token = localStorage.getItem('campustix_token');
     const user = JSON.parse(localStorage.getItem('campustix_user') || 'null');
 
     function logout() {
-        localStorage.removeItem('campustix_token');
         localStorage.removeItem('campustix_user');
         window.location.reload();
     }
@@ -85,13 +83,8 @@
 
     async function loadMyBookings() {
         try {
-            const res = await fetch('/api/v1/bookings/my-bookings', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            if (!res.ok) {
-                showLookup();
-                return;
-            }
+            const res = await fetch('/api/v1/bookings/by-email?email=' + encodeURIComponent(user.email));
+            if (!res.ok) { showLookup(); return; }
             const bookings = await res.json();
             renderTickets(bookings, user.name);
         } catch {
