@@ -9,10 +9,20 @@ import com.university.campustix.repository.SeatRepository;
 import com.university.campustix.repository.WaitlistRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -31,6 +41,27 @@ public class AdminController {
     private final SeatRepository seatRepository;
     private final BookingRepository bookingRepository;
     private final WaitlistRepository waitlistRepository;
+    private final AuthenticationManager authenticationManager;
+    private final HttpSessionSecurityContextRepository securityContextRepository;
+
+    @PostMapping("/login")
+    public ResponseEntity<Void> login(
+            @RequestParam String username,
+            @RequestParam String password,
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        try {
+            Authentication auth = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(username, password));
+            SecurityContext context = SecurityContextHolder.createEmptyContext();
+            context.setAuthentication(auth);
+            SecurityContextHolder.setContext(context);
+            securityContextRepository.saveContext(context, request, response);
+            return ResponseEntity.ok().build();
+        } catch (AuthenticationException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+    }
 
     @GetMapping("/auth")
     public ResponseEntity<Void> checkAuth() {

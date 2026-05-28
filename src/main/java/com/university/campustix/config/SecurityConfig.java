@@ -4,6 +4,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -14,6 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 
 @Configuration
 @EnableWebSecurity
@@ -30,12 +34,8 @@ public class SecurityConfig {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
-            .formLogin(form -> form
-                .loginProcessingUrl("/api/v1/admin/login")
-                .successHandler((req, res, auth) -> res.setStatus(200))
-                .failureHandler((req, res, ex) -> res.setStatus(401))
-                .permitAll()
-            )
+            .formLogin(AbstractHttpConfigurer::disable)
+            .securityContext(sc -> sc.securityContextRepository(securityContextRepository()))
             .logout(logout -> logout
                 .logoutUrl("/api/v1/admin/logout")
                 .logoutSuccessHandler((req, res, auth) -> res.setStatus(200))
@@ -46,6 +46,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET,  "/api/v1/admin/auth").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET,  "/api/v1/admin/analytics").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/v1/admin/events").hasRole("ADMIN")
+                // Login endpoint — always open
+                .requestMatchers(HttpMethod.POST, "/api/v1/admin/login").permitAll()
                 // Swagger UI — open
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 // Actuator — open (Prometheus scrapes this)
@@ -54,6 +56,23 @@ public class SecurityConfig {
                 .anyRequest().permitAll()
             );
         return http.build();
+    }
+
+    @Bean
+    public HttpSessionSecurityContextRepository securityContextRepository() {
+        return new HttpSessionSecurityContextRepository();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public DaoAuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService());
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
     }
 
     @Bean
