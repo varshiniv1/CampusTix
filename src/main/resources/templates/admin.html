@@ -343,7 +343,7 @@
             });
             if (res.ok) {
                 document.getElementById('toast').classList.remove('hidden');
-                setTimeout(() => window.location.href = '/', 1500);
+                setTimeout(() => window.location.href = '/?published=' + Date.now(), 1500);
             } else if (res.status === 401) {
                 adminLogout();
             } else {

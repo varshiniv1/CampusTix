@@ -120,21 +120,31 @@
     let activeCategory = '';
 
     async function loadEvents() {
+        // Always clear search on fresh page load so newly created events are visible
+        document.getElementById('hero-search').value = '';
+        document.getElementById('nav-search').value = '';
+
         try {
-            const res = await fetch('/api/v1/admin/events/all');
+            // Timestamp param prevents browser from serving a cached response
+            const res = await fetch('/api/v1/admin/events/all?_t=' + Date.now());
+            if (!res.ok) throw new Error('HTTP ' + res.status);
             allEvents = await res.json();
             renderEvents(allEvents);
             updateAuthButton();
-        } catch {
+        } catch (err) {
             document.getElementById('event-grid').innerHTML = `
                 <div class="col-span-full text-center py-16 text-red-400 text-sm">
-                    Failed to load events. Ensure the server is running.
+                    Failed to load events (${err.message}). Ensure the server is running.
                 </div>`;
         }
     }
 
     function setCategory(cat) {
         activeCategory = cat;
+        // Clear search text when switching category so events aren't accidentally hidden
+        document.getElementById('hero-search').value = '';
+        document.getElementById('nav-search').value = '';
+
         document.querySelectorAll('.cat-btn').forEach(btn => {
             const isActive = btn.dataset.cat === cat;
             btn.classList.toggle('active', isActive);
@@ -144,18 +154,18 @@
             btn.classList.toggle('border-white/10', !isActive);
             btn.classList.toggle('text-slate-300', !isActive);
         });
-        document.getElementById('section-title').textContent = cat
-            ? cat.charAt(0) + cat.slice(1).toLowerCase() + ' Events'
-            : 'All Events';
+        const titles = { MUSIC:'Music', SPORTS:'Sports', COMEDY:'Comedy', ARTS:'Arts & Theater', MOVIES:'Movies', FAMILY:'Family' };
+        document.getElementById('section-title').textContent = cat ? (titles[cat] || cat) + ' Events' : 'All Events';
         filterEvents();
     }
 
     function filterEvents() {
-        const query = (document.getElementById('hero-search').value || document.getElementById('nav-search').value || '').toLowerCase();
+        const query = (document.getElementById('hero-search').value || document.getElementById('nav-search').value || '').toLowerCase().trim();
         const filtered = allEvents.filter(ev => {
             const matchesSearch = !query ||
-                ev.name.toLowerCase().includes(query) ||
-                (ev.venue && ev.venue.toLowerCase().includes(query));
+                (ev.name  && ev.name.toLowerCase().includes(query)) ||
+                (ev.venue && ev.venue.toLowerCase().includes(query)) ||
+                (ev.description && ev.description.toLowerCase().includes(query));
             const matchesCat = !activeCategory || ev.category === activeCategory;
             return matchesSearch && matchesCat;
         });
