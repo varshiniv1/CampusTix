@@ -1,6 +1,9 @@
 # CampusTix
 
-A full-stack event ticketing platform built with Spring Boot 4, featuring real-time seat booking, AI-generated event descriptions, QR code tickets, and a Ticketmaster-style UI.
+A production-deployed, full-stack event ticketing platform built with **Spring Boot 4** — featuring real-time WebSocket seat booking, an AI-powered event chatbot, QR code + PDF ticket generation, automated email reminders, waitlist management, Redis caching, and a Ticketmaster-inspired UI.
+
+🚀 **Live:** [campustix-production.up.railway.app](https://campustix-production.up.railway.app)
+📖 **API Docs:** [/swagger-ui.html](https://campustix-production.up.railway.app/swagger-ui.html)
 
 ---
 
@@ -8,58 +11,80 @@ A full-stack event ticketing platform built with Spring Boot 4, featuring real-t
 
 | Layer | Technology |
 |---|---|
-| Backend | Spring Boot 4.0.6, Java 17 |
-| Database | PostgreSQL 15 (Docker) |
-| Cache | Redis 7 (Docker) |
-| Messaging | Apache Kafka 3.7 KRaft (Docker) |
-| ORM | Hibernate / Spring Data JPA |
-| Real-time | WebSocket (STOMP over SockJS) |
-| AI | Unsloth Studio — Qwen2.5-7B-Instruct (local LLM, OpenAI-compatible API) |
-| QR Codes | ZXing |
-| Email | Gmail SMTP |
+| Backend | Spring Boot 4.0.6, Java 23 |
+| Database | PostgreSQL 18 (Railway) |
+| Cache / Rate Limiting | Redis 7 (Railway) |
+| ORM | Hibernate 7 / Spring Data JPA |
+| DB Migrations | Flyway |
+| Real-time | WebSocket — STOMP over SockJS |
+| AI | Groq API — LLaMA 3.1 8B Instant |
+| QR Codes | ZXing (Google) |
+| PDF Tickets | Apache PDFBox 3 |
+| Email | Gmail SMTP (Spring Mail) |
+| Security | Spring Security 7 (BCrypt, session-based admin auth) |
 | Frontend | Thymeleaf + Tailwind CSS |
-| DB Admin | pgAdmin 4 |
+| Observability | Spring Actuator + Micrometer + Prometheus |
+| API Docs | SpringDoc OpenAPI / Swagger UI |
+| Deployment | Railway (Dockerfile) |
+
+---
+
+## Features
+
+- **Ticketmaster-style UI** — event grid with search, category filters, and price sorting
+- **Real-time seat booking** — WebSocket pushes booking result directly to user's browser
+- **Optimistic locking** — prevents double-booking the same seat under concurrent requests
+- **Redis rate limiting** — 1 booking attempt per 5 seconds per user
+- **QR code tickets** — embedded in confirmation email and downloadable as PDF
+- **PDF ticket download** — styled ticket with event details, seat, attendee info, and QR code
+- **AI event chatbot** — answers user questions about a specific event via Groq LLaMA 3.1
+- **AI description generator** — auto-generates compelling event descriptions for admins
+- **Circuit breaker** — AI calls protected by Resilience4j (opens after 50% failures, resets after 30s)
+- **Waitlist** — users join a queue when sold out; first in queue notified by email + WebSocket on cancellation
+- **Automated reminders** — scheduled job sends 24-hour and 1-hour email reminders before events
+- **Duplicate booking prevention** — users cannot book the same event twice
+- **Admin dashboard** — create events, auto-generate seats, view analytics (bookings, revenue, waitlist)
+- **Flyway migrations** — versioned schema (V1–V4)
 
 ---
 
 ## Running Locally
 
 ### Prerequisites
-- Docker Desktop
-- Java 17+
+- Java 23+
 - Maven
-- Unsloth Studio running on port 8888 (for AI features — optional, degrades gracefully)
+- Docker Desktop (for PostgreSQL + Redis)
 
 ### 1. Start infrastructure
 
 ```bash
-docker-compose up -d
+docker run -d --name campustix-postgres \
+  -e POSTGRES_DB=campustix -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password \
+  -p 5433:5432 postgres:15
+
+docker run -d --name campustix-redis \
+  -p 6379:6379 redis:7
 ```
 
-| Service | URL |
-|---|---|
-| PostgreSQL | localhost:5433 |
-| Redis | localhost:6379 |
-| Kafka | localhost:9092 |
-| Kafka UI | http://localhost:8081 |
-| pgAdmin | http://localhost:5050 |
+### 2. Set environment variables (optional — all have dev defaults)
 
-pgAdmin login: `admin@admin.com` / `password`
-Connect to DB with host `postgres`, port `5432`, user `user`, password `password`.
+```bash
+export MAIL_USERNAME=your@gmail.com
+export MAIL_PASSWORD=your-16-char-app-password
+export AI_API_KEY=your-groq-api-key
+```
 
-### 2. Start the application
+### 3. Run
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-App runs at **http://localhost:8080**
+App: **http://localhost:8080** | Swagger: **http://localhost:8080/swagger-ui.html**
 
 ---
 
 ## Environment Variables
-
-All variables have dev-safe defaults so the app runs without any extra config.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -68,12 +93,14 @@ All variables have dev-safe defaults so the app runs without any extra config.
 | `DB_PASSWORD` | `password` | PostgreSQL password |
 | `REDIS_HOST` | `localhost` | Redis host |
 | `REDIS_PORT` | `6379` | Redis port |
-| `KAFKA_SERVERS` | `localhost:9092` | Kafka bootstrap servers |
-| `MAIL_USERNAME` | `pcmbwow@gmail.com` | Gmail address for sending tickets |
-| `MAIL_PASSWORD` | *(set this)* | Gmail app password (16 chars) |
-| `AI_BASE_URL` | `http://127.0.0.1:8888` | Unsloth Studio base URL |
-| `AI_API_KEY` | `sk-unsloth-...` | Unsloth Studio API key |
-| `AI_MODEL` | `unsloth/Qwen2.5-7B-Instruct-GGUF` | Model name |
+| `REDIS_PASSWORD` | *(empty)* | Redis password |
+| `MAIL_USERNAME` | — | Gmail sender address |
+| `MAIL_PASSWORD` | — | Gmail app password (16 chars) |
+| `AI_BASE_URL` | `https://api.groq.com/openai/v1` | LLM API base URL |
+| `AI_API_KEY` | — | Groq API key |
+| `AI_MODEL` | `llama-3.1-8b-instant` | LLM model name |
+| `ADMIN_USERNAME` | `username` | Admin login |
+| `ADMIN_PASSWORD` | `password` | Admin password |
 
 ---
 
@@ -81,95 +108,127 @@ All variables have dev-safe defaults so the app runs without any extra config.
 
 | Route | Description |
 |---|---|
-| `GET /` | Home — Ticketmaster-style event grid with search and category filters |
-| `GET /events` | Events listing page |
-| `GET /booking/{eventId}` | Seat selector + real-time booking + AI chat widget |
-| `GET /login` | Login / Register (any email) |
-| `GET /my-tickets` | View tickets by email, download QR code |
-| `GET /admin` | Create events, generate AI descriptions, manage seats |
+| `GET /` | Home — Ticketmaster-style event grid |
+| `GET /booking/{eventId}` | Seat selector + live booking + AI chat |
+| `GET /login` | Login / Register |
+| `GET /my-tickets` | View bookings, download PDF ticket |
+| `GET /admin` | Admin panel — create events, analytics |
 
 ---
 
 ## REST API
 
+Full interactive docs at `/swagger-ui.html`.
+
 ### Auth — `/api/v1/auth`
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/register` | Register a new account |
+| `POST` | `/login` | Login |
 
-| Method | Endpoint | Body | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/auth/register` | `{ name, email, password }` | Register a new account |
-| `POST` | `/api/v1/auth/login` | `{ email, password }` | Login, returns `{ name, email }` |
+### Events — `/api/v1/events`
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/search` | Search + filter (q, category, minPrice, maxPrice, sort) |
 
-### Events — `/api/v1/admin`
-
-| Method | Endpoint | Params | Description |
-|---|---|---|---|
-| `GET` | `/api/v1/admin/events/all` | — | List all events |
-| `GET` | `/api/v1/admin/events/{id}` | — | Get a single event by ID |
-| `POST` | `/api/v1/admin/events?seatCount=N` | Body: Event JSON | Create event + auto-generate N seats |
-
-**Event JSON body:**
-```json
-{
-  "name": "Spring Concert",
-  "venue": "Main Auditorium",
-  "eventTime": "2025-09-01T19:00:00",
-  "description": "An evening of live music.",
-  "imageUrl": "https://...",
-  "price": 15.00,
-  "category": "MUSIC"
-}
-```
-Categories: `MUSIC`, `SPORTS`, `COMEDY`, `ARTS`, `FAMILY`, `OTHER`
+### Admin — `/api/v1/admin` *(requires admin session)*
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/login` | Admin login |
+| `GET` | `/events/all` | List all events |
+| `GET` | `/events/{id}` | Get event by ID (Redis cached) |
+| `POST` | `/events?seatCount=N` | Create event + generate N seats |
+| `GET` | `/analytics` | Bookings, revenue, waitlist, top events |
 
 ### Tickets — `/api/v1/tickets`
-
-| Method | Endpoint | Params | Description |
-|---|---|---|---|
-| `GET` | `/api/v1/tickets/seats` | `eventId` | Get all seats for an event |
-| `POST` | `/api/v1/tickets/claim` | `studentId` (email), `seatId`, `studentName` | Claim a seat — queued via Kafka |
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/seats?eventId=N` | Get seats for an event |
+| `POST` | `/claim` | Claim a seat (rate-limited, async, WebSocket result) |
 
 ### Bookings — `/api/v1/bookings`
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/by-email?email=` | Get all bookings for an email |
+| `POST` | `/cancel/{id}` | Cancel booking (frees seat, triggers waitlist) |
 
-| Method | Endpoint | Params | Description |
-|---|---|---|---|
-| `GET` | `/api/v1/bookings/by-email` | `email` | Get all bookings for an email address |
+### Waitlist — `/api/v1/waitlist`
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/join` | Join waitlist |
+| `GET` | `/position` | Check queue position |
 
 ### AI — `/api/v1/ai`
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/describe` | Generate event description |
+| `POST` | `/chat` | Ask AI about an event |
 
-| Method | Endpoint | Body | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/ai/describe` | `{ eventName, venue, category, price }` | Generate a 2–3 sentence event description |
-| `POST` | `/api/v1/ai/chat` | `{ eventId, message }` | Ask the AI assistant about a specific event |
-
-Requires Unsloth Studio running locally. Returns a fallback message if unavailable.
-
----
-
-## WebSocket
-
-Connect to `/ws-tickets` via SockJS/STOMP.
-
-| Topic | Description |
-|---|---|
-| `/topic/status/{base64(email)}` | Booking result for a specific user — `SUCCESS: ...` or `FAILED: ...` |
-| `/topic/seats-update` | Broadcast trigger to refresh seat availability |
-
-The channel suffix is the URL-safe Base64 encoding of the user's email (no padding). Both server and client compute the same value.
+### PDF Ticket — `/api/v1/ticket`
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/download/{bookingRef}` | Download styled PDF ticket |
 
 ---
 
 ## Booking Flow
 
-1. User selects a seat on `/booking/{eventId}`
-2. Frontend calls `POST /api/v1/tickets/claim`
-3. Request is rate-limited via Redis, then published to Kafka
-4. Kafka consumer processes the message:
-   - Locks the seat with optimistic locking
-   - Creates a `Booking` record
-   - Generates a QR code (ZXing, base64 PNG)
-   - Sends a confirmation email with the embedded QR code
-   - Pushes a WebSocket message to the user's personal channel
-5. Frontend receives the WebSocket message and shows the result in real time
+```
+User selects seat → POST /api/v1/tickets/claim
+        │
+        ├─ Redis rate limit (5s window per email)
+        ├─ Duplicate booking check
+        ├─ Mark seat SOLD (optimistic locking)
+        ├─ Generate QR code (ZXing 300×300 PNG → base64)
+        ├─ Save Booking (ref: CT-XXXXXXXX)
+        ├─ Send confirmation email (HTML + embedded QR)
+        └─ WebSocket push → /topic/status/{base64(email)}
+                    + broadcast /topic/seats-update
+```
+
+---
+
+## Waitlist Flow
+
+```
+Sold out → User joins waitlist
+Someone cancels → notifyNext(eventId)
+        └─ First in queue: email notification + WebSocket refresh
+```
+
+---
+
+## Reminder Scheduler
+
+Every 30 minutes:
+- Events in 23–25 hours → **24-hour reminder** email
+- Events in 45–75 minutes → **1-hour reminder** email
+
+---
+
+## WebSocket
+
+Connect to `/ws-tickets` (SockJS + STOMP).
+
+| Topic | Description |
+|---|---|
+| `/topic/status/{base64(email)}` | Personal booking result |
+| `/topic/seats-update` | Broadcast seat refresh |
+
+---
+
+## Database Schema
+
+```
+users     — id, name, email, password, role, created_at
+events    — id, name, venue, venue_address, event_time, expiry_date,
+            price, image_url, contact_info, description, category
+seat      — id, event_id, seat_number, status, version
+bookings  — id, user_id, buyer_email, buyer_name, seat_id, event_id,
+            booking_reference, booked_at, status, qr_code_base64,
+            payment_intent_id, reminded_24h, reminded_1h
+waitlist  — id, event_id, buyer_email, buyer_name, added_at, notified
+```
 
 ---
 
@@ -177,10 +236,22 @@ The channel suffix is the URL-safe Base64 encoding of the user's email (no paddi
 
 ```
 src/main/java/com/university/campustix/
-├── config/          # SecurityConfig, WebSocketConfig, KafkaConfig
-├── controller/      # REST controllers + Thymeleaf view controllers
-├── dto/             # Request/Response DTOs
-├── model/           # JPA entities: Event, Seat, Booking, User
-├── repository/      # Spring Data JPA repositories
-└── service/         # Business logic: Kafka, Email, QR, AI, Rate limiting
+├── config/       SecurityConfig, WebSocketConfig, CacheConfig, OpenApiConfig
+├── controller/   Auth, Booking, Event, Ticket, Payment, Waitlist, AI, Admin, View
+├── dto/          Request/Response DTOs
+├── model/        Event, Seat, Booking, User, Waitlist
+├── repository/   JPA repositories
+└── service/      Booking, Email, QRCode, PdfTicket, AI, Waitlist,
+                  Reminder, RateLimiting, Payment, User
 ```
+
+---
+
+## Deployment
+
+Hosted on **Railway** — three services: CampusTix app, PostgreSQL, Redis.
+
+Multi-stage Dockerfile: Maven build → `eclipse-temurin:23-jre-alpine` runtime.
+JVM: `-XX:+UseContainerSupport -XX:MaxRAMPercentage=75`
+
+Actuator endpoints: `health`, `info`, `prometheus`, `metrics` — tagged `application: campustix`
