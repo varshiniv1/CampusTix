@@ -68,7 +68,11 @@ public class EmailService {
             System.out.println("Ticket dispatched to: " + toEmail);
 
         } catch (MessagingException e) {
-            System.err.println("Email failed: " + e.getMessage());
+            System.err.println("=== EMAIL SEND FAILED ===");
+            System.err.println("To: " + toEmail);
+            System.err.println("From: " + fromEmail);
+            System.err.println("Error: " + e.getMessage());
+            if (e.getCause() != null) System.err.println("Cause: " + e.getCause().getMessage());
         }
     }
 }

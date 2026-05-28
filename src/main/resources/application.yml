@@ -36,6 +36,6 @@ spring:
 
 
 ai:
-  base-url: ${AI_BASE_URL:http://127.0.0.1:8888}
-  api-key: ${AI_API_KEY:sk-unsloth-350793328ec378071ad9179d619f1bf4}
-  model: ${AI_MODEL:unsloth/Qwen2.5-7B-Instruct-GGUF}
+  base-url: ${AI_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}
+  api-key: ${AI_API_KEY:your-gemini-api-key}
+  model: ${AI_MODEL:gemini-2.0-flash}

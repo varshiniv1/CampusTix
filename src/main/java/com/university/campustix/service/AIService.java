@@ -11,13 +11,13 @@ import java.util.Map;
 @Service
 public class AIService {
 
-    @Value("${ai.base-url:http://localhost:8080}")
+    @Value("${ai.base-url:https://generativelanguage.googleapis.com/v1beta/openai}")
     private String baseUrl;
 
-    @Value("${ai.api-key:sk-unsloth-placeholder}")
+    @Value("${ai.api-key:your-gemini-api-key}")
     private String apiKey;
 
-    @Value("${ai.model:unsloth/Qwen2.5-7B-Instruct-GGUF}")
+    @Value("${ai.model:gemini-2.0-flash}")
     private String model;
 
     private final RestClient restClient = RestClient.create();
@@ -72,8 +72,7 @@ public class AIService {
             return message.get("content").toString().trim();
 
         } catch (Exception e) {
-            return "AI assistant unavailable. Make sure Unsloth Studio is running at " + baseUrl +
-                   " and the model is loaded.";
+            return "AI assistant unavailable. Set AI_API_KEY to your Gemini API key (free at aistudio.google.com).";
         }
     }
 }
