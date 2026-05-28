@@ -42,8 +42,15 @@ public class SecurityConfig {
                 .permitAll()
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.GET, "/api/v1/admin/auth").hasRole("ADMIN")
+                // Admin API — requires login
+                .requestMatchers(HttpMethod.GET,  "/api/v1/admin/auth").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET,  "/api/v1/admin/analytics").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/v1/admin/events").hasRole("ADMIN")
+                // Swagger UI — open
+                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                // Actuator — open (Prometheus scrapes this)
+                .requestMatchers("/actuator/**").permitAll()
+                // Everything else — open
                 .anyRequest().permitAll()
             );
         return http.build();

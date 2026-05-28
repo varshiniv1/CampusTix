@@ -9,4 +9,5 @@ import java.util.List;
 public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByBuyerEmailOrderByBookedAtDesc(String email);
     List<Booking> findByUserOrderByBookedAtDesc(User user);
+    List<Booking> findTop10ByOrderByBookedAtDesc();
 }

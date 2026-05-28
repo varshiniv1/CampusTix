@@ -28,6 +28,7 @@ public class BookingService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final QRCodeService qrCodeService;
+    private final WaitlistService waitlistService;
     private final SimpMessagingTemplate messagingTemplate;
 
     @Async
@@ -49,37 +50,68 @@ public class BookingService {
             String qrCode = qrCodeService.generateQRCode(qrContent);
 
             Booking booking = Booking.builder()
-                    .buyerEmail(email)
-                    .buyerName(name)
-                    .seat(seat)
-                    .event(event)
-                    .bookingReference(ref)
-                    .bookedAt(LocalDateTime.now())
-                    .status("CONFIRMED")
-                    .qrCodeBase64(qrCode)
-                    .build();
+                .buyerEmail(email)
+                .buyerName(name)
+                .seat(seat)
+                .event(event)
+                .bookingReference(ref)
+                .bookedAt(LocalDateTime.now())
+                .status("CONFIRMED")
+                .qrCodeBase64(qrCode)
+                .build();
             userRepository.findByEmail(email).ifPresent(booking::setUser);
             bookingRepository.save(booking);
 
             emailService.sendBookingConfirmation(
-                    email, name, event.getName(),
-                    seat.getSeatNumber(), event.getVenue(),
-                    event.getEventTime() != null ? event.getEventTime().toString() : "TBD",
-                    qrCode
+                email, name, event.getName(),
+                seat.getSeatNumber(), event.getVenue(),
+                event.getEventTime() != null ? event.getEventTime().toString() : "TBD",
+                qrCode
             );
 
             messagingTemplate.convertAndSend(channel,
-                    "SUCCESS: Booking confirmed! Ref: " + ref + " | Seat: " + seat.getSeatNumber());
+                "SUCCESS: Booking confirmed! Ref: " + ref + " | Seat: " + seat.getSeatNumber());
             messagingTemplate.convertAndSend("/topic/seats-update", "refresh");
 
         } catch (Exception e) {
             messagingTemplate.convertAndSend(channel,
-                    "ERROR: Booking failed. The seat may have already been taken.");
+                "ERROR: Booking failed. The seat may have already been taken.");
+        }
+    }
+
+    @Async
+    @Transactional
+    public void cancelBooking(Long bookingId, String email) {
+        String channel = "/topic/status/" + toChannelSuffix(email);
+        try {
+            Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+            if (!booking.getBuyerEmail().equalsIgnoreCase(email)) {
+                messagingTemplate.convertAndSend(channel, "ERROR: Unauthorized cancellation attempt.");
+                return;
+            }
+
+            booking.setStatus("CANCELLED");
+            bookingRepository.save(booking);
+
+            Seat seat = booking.getSeat();
+            seat.setStatus("AVAILABLE");
+            seatRepository.save(seat);
+
+            // Notify next person on waitlist for this event
+            waitlistService.notifyNext(booking.getEvent().getId());
+
+            messagingTemplate.convertAndSend(channel, "CANCELLED: Your booking has been cancelled.");
+            messagingTemplate.convertAndSend("/topic/seats-update", "refresh");
+
+        } catch (Exception e) {
+            messagingTemplate.convertAndSend(channel, "ERROR: Cancellation failed — " + e.getMessage());
         }
     }
 
     private String toChannelSuffix(String email) {
         return Base64.getUrlEncoder().withoutPadding()
-                .encodeToString(email.getBytes(StandardCharsets.UTF_8));
+            .encodeToString(email.getBytes(StandardCharsets.UTF_8));
     }
 }

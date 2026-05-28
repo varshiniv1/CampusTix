@@ -9,14 +9,10 @@ import org.springframework.ui.Model;
 public class ViewController {
 
     @GetMapping("/")
-    public String homePage() {
-        return "index";
-    }
+    public String homePage() { return "index"; }
 
     @GetMapping("/events")
-    public String eventsPage() {
-        return "events";
-    }
+    public String eventsPage() { return "events"; }
 
     @GetMapping("/booking/{eventId}")
     public String bookingPage(@PathVariable Long eventId, Model model) {
@@ -25,17 +21,14 @@ public class ViewController {
     }
 
     @GetMapping("/login")
-    public String loginPage() {
-        return "login";
-    }
+    public String loginPage() { return "login"; }
 
     @GetMapping("/my-tickets")
-    public String myTicketsPage() {
-        return "my-tickets";
-    }
+    public String myTicketsPage() { return "my-tickets"; }
 
     @GetMapping("/admin")
-    public String adminPage() {
-        return "admin";
-    }
+    public String adminPage() { return "admin"; }
+
+    @GetMapping("/admin/analytics")
+    public String analyticsPage() { return "admin-analytics"; }
 }

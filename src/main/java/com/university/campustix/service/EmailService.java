@@ -39,7 +39,6 @@ public class EmailService {
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
             message.setSubject("Your CampusTix Ticket: " + eventName);
 
-            // QR block references the CID inline attachment
             String qrBlock = qrCodeBase64 != null
                 ? "<div style='text-align:center;margin:24px 0;'>" +
                   "<p style='color:#94a3b8;font-size:12px;margin-bottom:12px;text-transform:uppercase;letter-spacing:2px;'>SCAN TO VERIFY</p>" +
@@ -68,7 +67,6 @@ public class EmailService {
                 eventName, name, seatNum, venue, time, qrBlock
             );
 
-            // Build multipart/related so the QR image is a proper inline CID attachment
             MimeBodyPart htmlPart = new MimeBodyPart();
             htmlPart.setContent(htmlContent, "text/html; charset=UTF-8");
 
@@ -91,9 +89,52 @@ public class EmailService {
         } catch (MessagingException | UnsupportedEncodingException e) {
             System.err.println("=== EMAIL SEND FAILED ===");
             System.err.println("To: " + toEmail);
-            System.err.println("From: " + fromEmail);
             System.err.println("Error: " + e.getMessage());
             if (e.getCause() != null) System.err.println("Cause: " + e.getCause().getMessage());
+        }
+    }
+
+    public void sendWaitlistNotification(String toEmail, String name, String eventName) {
+        Properties props = new Properties();
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", "true");
+        props.put("mail.smtp.host", "smtp.gmail.com");
+        props.put("mail.smtp.port", "587");
+
+        Session session = Session.getInstance(props, new Authenticator() {
+            protected PasswordAuthentication getPasswordAuthentication() {
+                return new PasswordAuthentication(fromEmail, appPassword);
+            }
+        });
+
+        try {
+            Message message = new MimeMessage(session);
+            message.setFrom(new InternetAddress(fromEmail, "CampusTix"));
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
+            message.setSubject("Good news! A seat opened up for " + eventName);
+
+            String html = String.format(
+                "<div style='background:#06081C;color:white;padding:40px;font-family:\"Inter\",sans-serif;max-width:520px;margin:0 auto;border-radius:24px;'>" +
+                "<div style='text-align:center;margin-bottom:28px;'>" +
+                "<span style='background:#4f46e5;color:white;padding:8px 20px;border-radius:50px;font-size:13px;font-weight:800;letter-spacing:3px;text-transform:uppercase;'>Campus Tix</span>" +
+                "</div>" +
+                "<div style='background:#0E1028;border:1px solid #1e2d5a;border-radius:20px;padding:28px;'>" +
+                "<p style='color:#22c55e;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:3px;margin:0 0 8px;'>Seat Available!</p>" +
+                "<h2 style='color:white;font-size:22px;font-weight:800;margin:0 0 12px;'>%s</h2>" +
+                "<p style='color:#94a3b8;font-size:14px;margin:0 0 20px;'>Hi %s, a seat just opened up for this event. Head to CampusTix now to book it before someone else does!</p>" +
+                "<a href='http://localhost:8080/events' style='display:inline-block;background:#4f46e5;color:white;padding:12px 24px;border-radius:12px;font-weight:800;font-size:13px;text-decoration:none;'>Book Now</a>" +
+                "</div>" +
+                "<p style='color:#475569;font-size:11px;text-align:center;margin-top:20px;'>You received this because you joined the waitlist for this event.</p>" +
+                "</div>",
+                eventName, name != null ? name : "there"
+            );
+
+            message.setContent(html, "text/html; charset=UTF-8");
+            Transport.send(message);
+            System.out.println("Waitlist notification sent to: " + toEmail);
+
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            System.err.println("=== WAITLIST EMAIL FAILED: " + e.getMessage());
         }
     }
 }

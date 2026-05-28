@@ -1,26 +1,41 @@
 package com.university.campustix.service;
 
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 @Service
 public class AIService {
 
-    @Value("${ai.base-url:https://generativelanguage.googleapis.com/v1beta/openai}")
+    @Value("${ai.base-url:https://api.groq.com/openai/v1}")
     private String baseUrl;
 
-    @Value("${ai.api-key:AIzaSyA0XcH4MfNHdZxIdXIRpSomSPu5aslkR_Y}")
+    @Value("${ai.api-key:}")
     private String apiKey;
 
-    @Value("${ai.model:gemini-2.0-flash}")
+    @Value("${ai.model:llama-3.1-8b-instant}")
     private String model;
 
     private final RestClient restClient = RestClient.create();
+
+    // Circuit breaker: opens after 50% failures in a 5-call window, waits 30s before retrying
+    private final CircuitBreaker circuitBreaker = CircuitBreakerRegistry.of(
+        CircuitBreakerConfig.custom()
+            .failureRateThreshold(50)
+            .slidingWindowSize(5)
+            .waitDurationInOpenState(Duration.ofSeconds(30))
+            .permittedNumberOfCallsInHalfOpenState(2)
+            .build()
+    ).circuitBreaker("ai");
 
     public String generateEventDescription(String eventName, String venue, String category, Double price) {
         String prompt = String.format(
@@ -47,38 +62,41 @@ public class AIService {
     }
 
     private String callLLM(String prompt) {
-        // OpenAI-compatible request format (used by Unsloth Studio / llama.cpp servers)
+        Callable<String> callable = CircuitBreaker.decorateCallable(
+            circuitBreaker, () -> callLLMInternal(prompt)
+        );
+        try {
+            return callable.call();
+        } catch (Exception e) {
+            System.err.println("=== AI CALL FAILED [circuit: " + circuitBreaker.getState() + "] ===");
+            System.err.println("Error: " + e.getMessage());
+            if (circuitBreaker.getState() == CircuitBreaker.State.OPEN) {
+                return "AI temporarily unavailable (circuit open — too many recent failures). Try again in 30 seconds.";
+            }
+            return "AI unavailable: " + e.getClass().getSimpleName() + ": " + e.getMessage();
+        }
+    }
+
+    private String callLLMInternal(String prompt) {
         var requestBody = Map.of(
             "model", model,
             "max_tokens", 512,
             "messages", List.of(Map.of("role", "user", "content", prompt))
         );
 
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> response = restClient.post()
-                    .uri(baseUrl + "/chat/completions")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(requestBody)
-                    .retrieve()
-                    .body(Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> response = restClient.post()
+            .uri(baseUrl + "/chat/completions")
+            .header("Authorization", "Bearer " + apiKey)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(requestBody)
+            .retrieve()
+            .body(Map.class);
 
-            // OpenAI-compatible response: choices[0].message.content
-            @SuppressWarnings("unchecked")
-            var choices = (List<Map<String, Object>>) response.get("choices");
-            @SuppressWarnings("unchecked")
-            var message = (Map<String, Object>) choices.get(0).get("message");
-            return message.get("content").toString().trim();
-
-        } catch (Exception e) {
-            System.err.println("=== AI CALL FAILED ===");
-            System.err.println("URL: " + baseUrl + "/chat/completions");
-            System.err.println("Model: " + model);
-            System.err.println("Error type: " + e.getClass().getSimpleName());
-            System.err.println("Error: " + e.getMessage());
-            if (e.getCause() != null) System.err.println("Cause: " + e.getCause().getMessage());
-            return "AI assistant unavailable. (" + e.getClass().getSimpleName() + ": " + e.getMessage() + ")";
-        }
+        @SuppressWarnings("unchecked")
+        var choices = (List<Map<String, Object>>) response.get("choices");
+        @SuppressWarnings("unchecked")
+        var message = (Map<String, Object>) choices.get(0).get("message");
+        return message.get("content").toString().trim();
     }
 }

@@ -1,79 +1,128 @@
 package com.university.campustix.controller;
 
+import com.university.campustix.dto.AnalyticsResponse;
+import com.university.campustix.model.Booking;
 import com.university.campustix.model.Event;
-import com.university.campustix.model.Seat;
+import com.university.campustix.repository.BookingRepository;
 import com.university.campustix.repository.EventRepository;
 import com.university.campustix.repository.SeatRepository;
+import com.university.campustix.repository.WaitlistRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
+@Tag(name = "Admin", description = "Admin-only: event management and analytics")
 public class AdminController {
+
+    private final EventRepository eventRepository;
+    private final SeatRepository seatRepository;
+    private final BookingRepository bookingRepository;
+    private final WaitlistRepository waitlistRepository;
 
     @GetMapping("/auth")
     public ResponseEntity<Void> checkAuth() {
         return ResponseEntity.ok().build();
     }
 
-    private final EventRepository eventRepository;
-    private final SeatRepository seatRepository;
-
-    /**
-     * Retrieves all events for the marketplace.
-     * This matches the fetch('/api/v1/admin/events/all') call in your frontend.
-     */
+    @Operation(summary = "Get all events (cached in Redis for 10 min)")
+    @Cacheable("events")
     @GetMapping("/events/all")
     public List<Event> getAllEvents() {
         return eventRepository.findAll();
     }
 
-    /**
-     * Retrieves a single event. Used by booking.html to load
-     * specific posters, map links, and expiry status.
-     */
+    @Operation(summary = "Get a single event by ID (cached)")
+    @Cacheable(value = "events", key = "#id")
     @GetMapping("/events/{id}")
     public Event getEventById(@PathVariable Long id) {
         return eventRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Event not found with id: " + id));
+            .orElseThrow(() -> new RuntimeException("Event not found: " + id));
     }
 
-    /**
-     * Creates an event and its associated stadium seats.
-     * Includes logic to handle the expiryDate field.
-     */
+    @Operation(summary = "Create an event and auto-generate seats (clears events cache)")
+    @CacheEvict(value = "events", allEntries = true)
     @PostMapping("/events")
     public Event createEvent(@RequestBody Event event, @RequestParam int seatCount) {
-        // Logic: Handle Event Expiry
-        // If no expiry is provided, default it to 24 hours after the event starts.
         if (event.getExpiryDate() == null && event.getEventTime() != null) {
             event.setExpiryDate(event.getEventTime().plusHours(24));
         }
+        Event saved = eventRepository.save(event);
 
-        // 1. Persist the Event metadata
-        Event savedEvent = eventRepository.save(event);
-
-        // 2. Automatically generate the stadium seats
-        List<Seat> seats = new ArrayList<>();
+        List<com.university.campustix.model.Seat> seats = new ArrayList<>();
         for (int i = 1; i <= seatCount; i++) {
-            Seat seat = new Seat();
-            // Link the seat to the event object (JPA Relationship)
-            seat.setEvent(savedEvent);
+            com.university.campustix.model.Seat seat = new com.university.campustix.model.Seat();
+            seat.setEvent(saved);
             seat.setSeatNumber("S" + i);
             seat.setStatus("AVAILABLE");
-            seat.setVersion(0L); // For Optimistic Locking
+            seat.setVersion(0L);
             seats.add(seat);
         }
-
-        // 3. Save all seats in a single batch for performance
         seatRepository.saveAll(seats);
+        return saved;
+    }
 
-        return savedEvent;
+    @Operation(summary = "Analytics dashboard — bookings, revenue, waitlist, recent activity")
+    @GetMapping("/analytics")
+    public ResponseEntity<AnalyticsResponse> getAnalytics() {
+        List<Event> events = eventRepository.findAll();
+        List<Booking> allBookings = bookingRepository.findAll();
+
+        List<Booking> confirmed = allBookings.stream()
+            .filter(b -> !"CANCELLED".equals(b.getStatus()))
+            .toList();
+
+        long totalBookings = confirmed.size();
+        double totalRevenue = confirmed.stream()
+            .mapToDouble(b -> b.getEvent().getPrice() != null ? b.getEvent().getPrice() : 0.0)
+            .sum();
+        long totalWaitlisted = waitlistRepository.count();
+
+        Map<Long, Long> bookingsByEvent = confirmed.stream()
+            .collect(Collectors.groupingBy(b -> b.getEvent().getId(), Collectors.counting()));
+
+        List<AnalyticsResponse.EventStat> topEvents = events.stream()
+            .map(e -> {
+                long bookings = bookingsByEvent.getOrDefault(e.getId(), 0L);
+                long available = seatRepository.countByEventIdAndStatus(e.getId(), "AVAILABLE");
+                long waitlisted = waitlistRepository.countByEventIdAndNotifiedFalse(e.getId());
+                double revenue = bookings * (e.getPrice() != null ? e.getPrice() : 0.0);
+                return new AnalyticsResponse.EventStat(
+                    e.getName(), e.getCategory(), bookings, available, waitlisted, revenue
+                );
+            })
+            .sorted((a, b) -> Long.compare(b.bookings(), a.bookings()))
+            .limit(10)
+            .toList();
+
+        List<AnalyticsResponse.RecentBooking> recent = bookingRepository
+            .findTop10ByOrderByBookedAtDesc()
+            .stream()
+            .map(b -> new AnalyticsResponse.RecentBooking(
+                b.getBookingReference(),
+                b.getBuyerName(),
+                b.getBuyerEmail(),
+                b.getEvent().getName(),
+                b.getSeat().getSeatNumber(),
+                b.getStatus(),
+                b.getBookedAt() != null ? b.getBookedAt().toString() : ""
+            ))
+            .toList();
+
+        return ResponseEntity.ok(new AnalyticsResponse(
+            events.size(), totalBookings, totalRevenue, totalWaitlisted, topEvents, recent
+        ));
     }
 }
