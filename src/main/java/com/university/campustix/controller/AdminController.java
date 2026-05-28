@@ -12,10 +12,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
@@ -82,26 +84,32 @@ public class AdminController {
             .orElseThrow(() -> new RuntimeException("Event not found: " + id));
     }
 
-    @Operation(summary = "Create an event and auto-generate seats (clears events cache)")
-    @CacheEvict(value = "events", allEntries = true)
+    @Operation(summary = "Create an event and auto-generate seats")
+    @Transactional
     @PostMapping("/events")
-    public Event createEvent(@RequestBody Event event, @RequestParam int seatCount) {
-        if (event.getExpiryDate() == null && event.getEventTime() != null) {
-            event.setExpiryDate(event.getEventTime().plusHours(24));
-        }
-        Event saved = eventRepository.save(event);
+    public ResponseEntity<?> createEvent(@RequestBody Event event, @RequestParam int seatCount) {
+        try {
+            if (event.getExpiryDate() == null && event.getEventTime() != null) {
+                event.setExpiryDate(event.getEventTime().plusHours(24));
+            }
+            Event saved = eventRepository.save(event);
 
-        List<com.university.campustix.model.Seat> seats = new ArrayList<>();
-        for (int i = 1; i <= seatCount; i++) {
-            com.university.campustix.model.Seat seat = new com.university.campustix.model.Seat();
-            seat.setEvent(saved);
-            seat.setSeatNumber("S" + i);
-            seat.setStatus("AVAILABLE");
-            seat.setVersion(0L);
-            seats.add(seat);
+            List<com.university.campustix.model.Seat> seats = new ArrayList<>();
+            for (int i = 1; i <= seatCount; i++) {
+                com.university.campustix.model.Seat seat = new com.university.campustix.model.Seat();
+                seat.setEvent(saved);
+                seat.setSeatNumber("S" + i);
+                seat.setStatus("AVAILABLE");
+                seat.setVersion(0L);
+                seats.add(seat);
+            }
+            seatRepository.saveAll(seats);
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            log.error("Failed to create event: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", e.getMessage(), "cause", e.getClass().getSimpleName()));
         }
-        seatRepository.saveAll(seats);
-        return saved;
     }
 
     @Operation(summary = "Analytics dashboard — bookings, revenue, waitlist, recent activity")
