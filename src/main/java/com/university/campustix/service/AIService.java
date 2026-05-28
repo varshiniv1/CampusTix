@@ -57,7 +57,7 @@ public class AIService {
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restClient.post()
-                    .uri(baseUrl + "/v1/chat/completions")
+                    .uri(baseUrl + "/chat/completions")
                     .header("Authorization", "Bearer " + apiKey)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
