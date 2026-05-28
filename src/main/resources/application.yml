@@ -36,6 +36,10 @@ spring:
 
 
 ai:
-  base-url: ${AI_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}
-  api-key: ${AI_API_KEY:AIzaSyA0XcH4MfNHdZxIdXIRpSomSPu5aslkR_Y}
-  model: ${AI_MODEL:gemini-2.0-flash}
+  base-url: ${AI_BASE_URL:https://api.groq.com/openai/v1}
+  api-key: ${AI_API_KEY:}
+  model: ${AI_MODEL:llama-3.1-8b-instant}
+
+admin:
+  username: ${ADMIN_USERNAME:username}
+  password: ${ADMIN_PASSWORD:password}

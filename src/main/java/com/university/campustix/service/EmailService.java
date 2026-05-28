@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import jakarta.mail.*;
 import jakarta.mail.internet.*;
+import java.io.UnsupportedEncodingException;
 import java.util.Properties;
 
 @Service
@@ -31,7 +32,7 @@ public class EmailService {
 
         try {
             Message message = new MimeMessage(session);
-            message.setFrom(new InternetAddress(fromEmail));
+            message.setFrom(new InternetAddress(fromEmail, "CampusTix"));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
             message.setSubject("Your CampusTix Ticket: " + eventName);
 
@@ -67,7 +68,7 @@ public class EmailService {
             Transport.send(message);
             System.out.println("Ticket dispatched to: " + toEmail);
 
-        } catch (MessagingException e) {
+        } catch (MessagingException | UnsupportedEncodingException e) {
             System.err.println("=== EMAIL SEND FAILED ===");
             System.err.println("To: " + toEmail);
             System.err.println("From: " + fromEmail);
