@@ -2,6 +2,12 @@ spring:
   application:
     name: campustix
 
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
   mail:
     host: smtp.gmail.com
     port: 587
