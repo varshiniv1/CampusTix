@@ -89,6 +89,9 @@
         <button onclick="setCategory('ARTS')" data-cat="ARTS" class="cat-btn flex-shrink-0 flex items-center gap-2 bg-white/5 border border-white/10 text-slate-300 hover:border-white/30 hover:text-white px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all">
             🎭 Arts & Theater
         </button>
+        <button onclick="setCategory('MOVIES')" data-cat="MOVIES" class="cat-btn flex-shrink-0 flex items-center gap-2 bg-white/5 border border-white/10 text-slate-300 hover:border-white/30 hover:text-white px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all">
+            🎬 Movies
+        </button>
         <button onclick="setCategory('FAMILY')" data-cat="FAMILY" class="cat-btn flex-shrink-0 flex items-center gap-2 bg-white/5 border border-white/10 text-slate-300 hover:border-white/30 hover:text-white px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all">
             👨‍👩‍👧 Family
         </button>
@@ -187,7 +190,7 @@
                 : '';
 
             const categoryLabel = ev.category || 'EVENT';
-            const categoryEmoji = { MUSIC: '🎵', SPORTS: '🏀', COMEDY: '😂', ARTS: '🎭', FAMILY: '👨‍👩‍👧' }[categoryLabel] || '🎟️';
+            const categoryEmoji = { MUSIC: '🎵', SPORTS: '🏀', COMEDY: '😂', ARTS: '🎭', MOVIES: '🎬', FAMILY: '👨‍👩‍👧' }[categoryLabel] || '🎟️';
 
             return `
             <div class="card-hover group bg-[#0E1028] border border-white/5 rounded-2xl overflow-hidden ${isExpired ? 'opacity-50 grayscale' : ''}">

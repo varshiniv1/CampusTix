@@ -37,8 +37,7 @@ public class AdminController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "Get all events (cached in Redis for 10 min)")
-    @Cacheable("events")
+    @Operation(summary = "Get all events")
     @GetMapping("/events/all")
     public List<Event> getAllEvents() {
         return eventRepository.findAll();

@@ -49,6 +49,7 @@
             <button class="cat-btn text-[11px] font-bold px-3 py-1.5 rounded-full border border-white/10 text-slate-400 hover:text-white transition-all" data-cat="SPORTS">Sports</button>
             <button class="cat-btn text-[11px] font-bold px-3 py-1.5 rounded-full border border-white/10 text-slate-400 hover:text-white transition-all" data-cat="COMEDY">Comedy</button>
             <button class="cat-btn text-[11px] font-bold px-3 py-1.5 rounded-full border border-white/10 text-slate-400 hover:text-white transition-all" data-cat="ARTS">Arts</button>
+            <button class="cat-btn text-[11px] font-bold px-3 py-1.5 rounded-full border border-white/10 text-slate-400 hover:text-white transition-all" data-cat="MOVIES">Movies</button>
             <button class="cat-btn text-[11px] font-bold px-3 py-1.5 rounded-full border border-white/10 text-slate-400 hover:text-white transition-all" data-cat="FAMILY">Family</button>
             <button class="cat-btn text-[11px] font-bold px-3 py-1.5 rounded-full border border-white/10 text-slate-400 hover:text-white transition-all" data-cat="OTHER">Other</button>
         </div>
@@ -152,7 +153,7 @@
             const dateStr   = ev.eventTime
                 ? new Date(ev.eventTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                 : 'Date TBD';
-            const catColors = { MUSIC:'bg-pink-500/20 text-pink-400', SPORTS:'bg-green-500/20 text-green-400', COMEDY:'bg-yellow-500/20 text-yellow-400', ARTS:'bg-purple-500/20 text-purple-400', FAMILY:'bg-blue-500/20 text-blue-400', OTHER:'bg-slate-500/20 text-slate-400' };
+            const catColors = { MUSIC:'bg-pink-500/20 text-pink-400', SPORTS:'bg-green-500/20 text-green-400', COMEDY:'bg-yellow-500/20 text-yellow-400', ARTS:'bg-purple-500/20 text-purple-400', MOVIES:'bg-red-500/20 text-red-400', FAMILY:'bg-blue-500/20 text-blue-400', OTHER:'bg-slate-500/20 text-slate-400' };
             const catColor  = catColors[ev.category] || catColors.OTHER;
 
             return `
