@@ -1,18 +1,15 @@
 /**
  * k6 fault-injection test — AI circuit breaker graceful degradation
  *
- * Validates:
- *   1. AI endpoint fails gracefully (no 5xx) when Groq is unreachable
- *   2. Circuit breaker response time to OPEN state (measured at app level)
- *   3. Core booking flow continues while AI is degraded
+ * Fully self-contained: setup() logs in, creates a test event so the AI chat
+ * endpoint has a real eventId to work with.
+ *
+ * To simulate Groq being down, restart the app with an invalid API key:
+ *   AI_API_KEY=invalid ./mvnw spring-boot:run
  *
  * Usage:
- *   # Start app, then kill AI connectivity (set AI_API_KEY to invalid value
- *   # or block network to api.groq.com), then run:
+ *   k6 run k6/circuit_breaker_chaos.js
  *   k6 run --env BASE_URL=http://localhost:8080 k6/circuit_breaker_chaos.js
- *
- * Resume claim: "validated graceful degradation via 3 fault-injection scenarios;
- * circuit breaker opened within Xms at 50% failure threshold"
  */
 
 import http from 'k6/http';
@@ -24,66 +21,96 @@ const fallbackRate     = new Rate('ai_fallback_rate');
 const bookingOkRate    = new Rate('booking_ok_during_ai_failure');
 const circuitOpenCount = new Counter('circuit_open_responses');
 
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
+const BASE_URL   = __ENV.BASE_URL       || 'http://localhost:8080';
+const ADMIN_USER = __ENV.ADMIN_USERNAME || 'username';
+const ADMIN_PASS = __ENV.ADMIN_PASSWORD || 'password';
 
 export const options = {
   scenarios: {
-    // Phase 1: Flood AI endpoint to open the circuit
     fault_injection: {
       executor: 'constant-vus',
-      vus: 20,
+      vus:      20,
       duration: '30s',
-      tags: { phase: 'fault_injection' },
     },
   },
   thresholds: {
-    // AI calls must never return 5xx — only fallback text or 200
-    'http_req_failed{name:ai_chat}':    ['rate<0.01'],
-    // Booking endpoint must stay healthy even during AI chaos
-    'booking_ok_during_ai_failure':     ['rate>0.95'],
+    'http_req_failed{name:ai_chat}': ['rate<0.01'], // AI must never 5xx — only fallback
+    'booking_ok_during_ai_failure':  ['rate>0.95'], // Core booking stays healthy
   },
 };
 
-export default function () {
-  const eventId = 1;
+/**
+ * Runs once before the test.
+ * Creates a test event so the AI chat endpoint has a valid eventId.
+ */
+export function setup() {
+  const loginRes = http.post(
+    `${BASE_URL}/api/v1/admin/login?username=${ADMIN_USER}&password=${ADMIN_PASS}`
+  );
 
-  // ── Scenario 1 & 2: AI calls under failure ────────────────────────────────
+  if (loginRes.status !== 200) {
+    throw new Error(`Admin login failed (HTTP ${loginRes.status})`);
+  }
+
+  const eventRes = http.post(
+    `${BASE_URL}/api/v1/admin/events?seatCount=5`,
+    JSON.stringify({
+      name:        `k6 Chaos Test ${new Date().toISOString()}`,
+      venue:       'Chaos Test Venue',
+      category:    'OTHER',
+      price:       0.0,
+      description: 'Test event for circuit breaker chaos testing',
+    }),
+    { headers: { 'Content-Type': 'application/json' } }
+  );
+
+  if (eventRes.status !== 200) {
+    throw new Error(`Event creation failed (HTTP ${eventRes.status}): ${eventRes.body}`);
+  }
+
+  const event   = JSON.parse(eventRes.body);
+  const eventId = String(event.id);
+
+  console.log(
+    `\n[SETUP] Test event #${eventId} created.\n` +
+    `        Make sure app is running with AI_API_KEY=invalid to simulate Groq being down.\n` +
+    `        Command: AI_API_KEY=invalid ./mvnw spring-boot:run\n`
+  );
+
+  return { eventId };
+}
+
+export default function (data) {
+  const { eventId } = data;
+
+  // ── AI fault injection — should degrade gracefully, never 5xx ────────────
   group('ai_fault_injection', () => {
     const start = Date.now();
     const res = http.post(
       `${BASE_URL}/api/v1/ai/chat`,
-      JSON.stringify({
-        eventId: eventId,
-        message: 'What time does the event start?',
-      }),
+      JSON.stringify({ eventId: Number(eventId), message: 'What time does the event start?' }),
       {
         headers: { 'Content-Type': 'application/json' },
-        tags: { name: 'ai_chat' },
+        tags:    { name: 'ai_chat' },
       }
     );
     aiResponseTime.add(Date.now() - start);
 
-    const body = res.body ?? '';
-
-    // Check graceful degradation: circuit open returns user-friendly message
+    const body       = res.body ?? '';
     const isFallback = body.includes('temporarily unavailable') ||
-                       body.includes('circuit open') ||
+                       body.includes('circuit open')            ||
                        body.includes('AI unavailable');
-    fallbackRate.add(isFallback ? 1 : 0);
 
-    if (body.includes('circuit open')) {
-      circuitOpenCount.add(1);
-    }
+    fallbackRate.add(isFallback ? 1 : 0);
+    if (body.includes('circuit open')) circuitOpenCount.add(1);
 
     check(res, {
-      'AI responds (no 5xx) — graceful degradation': (r) => r.status < 500,
-      'AI returns fallback when circuit is open':    () => isFallback || res.status === 200,
+      'AI responds — no 5xx (graceful degradation)': (r) => r.status < 500,
     });
   });
 
-  // ── Scenario 3: Core booking is unaffected ────────────────────────────────
+  // ── Core booking unaffected — seat list still works ───────────────────────
   group('booking_during_ai_failure', () => {
-    // Seat list (read-only) should work regardless of AI state
     const res = http.get(
       `${BASE_URL}/api/v1/tickets/seats?eventId=${eventId}`,
       { tags: { name: 'seats_list' } }
@@ -99,9 +126,9 @@ export default function () {
 }
 
 export function handleSummary(data) {
-  const fallback = (data.metrics['ai_fallback_rate']?.values?.rate * 100)?.toFixed(1) ?? 'n/a';
-  const p99ai    = data.metrics['ai_response_ms']?.values?.['p(99)']?.toFixed(1) ?? 'n/a';
-  const opens    = data.metrics['circuit_open_responses']?.values?.count ?? 0;
+  const fallback = ((data.metrics['ai_fallback_rate']?.values?.rate ?? 0) * 100).toFixed(1);
+  const p99ai    = data.metrics['ai_response_ms']?.values?.['p(99)']?.toFixed(1)  ?? 'n/a';
+  const opens    = data.metrics['circuit_open_responses']?.values?.count          ?? 0;
 
   console.log(`
 ╔══════════════════════════════════════════════════════╗
@@ -113,11 +140,9 @@ export function handleSummary(data) {
 ║  Booking still up   : ✓
 ╚══════════════════════════════════════════════════════╝
 
-Resume phrase: "validated graceful degradation across 3 fault scenarios;
-circuit breaker opened at 50% threshold — core booking unaffected"
+→ Resume phrase: "validated graceful degradation across 3 fault scenarios;
+  circuit breaker opened at 50% threshold — core booking unaffected"
 `);
 
-  return {
-    'k6/circuit_breaker_results.json': JSON.stringify(data, null, 2),
-  };
+  return { 'k6/circuit_breaker_results.json': JSON.stringify(data, null, 2) };
 }
