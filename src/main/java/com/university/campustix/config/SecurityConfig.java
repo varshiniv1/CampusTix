@@ -87,6 +87,6 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        return new BCryptPasswordEncoder(10); // cost factor 10 = 1024 rounds (OWASP recommended minimum)
     }
 }

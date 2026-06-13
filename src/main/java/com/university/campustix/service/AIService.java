@@ -1,14 +1,12 @@
 package com.university.campustix.service;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -27,15 +25,12 @@ public class AIService {
 
     private final RestClient restClient = RestClient.create();
 
-    // Circuit breaker: opens after 50% failures in a 5-call window, waits 30s before retrying
-    private final CircuitBreaker circuitBreaker = CircuitBreakerRegistry.of(
-        CircuitBreakerConfig.custom()
-            .failureRateThreshold(50)
-            .slidingWindowSize(5)
-            .waitDurationInOpenState(Duration.ofSeconds(30))
-            .permittedNumberOfCallsInHalfOpenState(2)
-            .build()
-    ).circuitBreaker("ai");
+    // Sourced from ResilienceConfig — metrics auto-registered to Micrometer/Prometheus
+    private final CircuitBreaker circuitBreaker;
+
+    public AIService(CircuitBreakerRegistry circuitBreakerRegistry) {
+        this.circuitBreaker = circuitBreakerRegistry.circuitBreaker("ai");
+    }
 
     public String generateEventDescription(String eventName, String venue, String category, Double price) {
         String prompt = String.format(

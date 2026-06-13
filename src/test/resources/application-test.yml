@@ -1,0 +1,15 @@
+spring:
+  mail:
+    host: localhost
+    port: 25500      # no real SMTP in tests — EmailService is mocked
+  jpa:
+    show-sql: false
+
+ai:
+  base-url: http://localhost:99999   # no real AI calls in tests
+  api-key: test-key
+  model: test-model
+
+admin:
+  username: test-admin
+  password: test-password

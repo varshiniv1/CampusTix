@@ -1,0 +1,188 @@
+{
+  "__inputs": [],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" }
+  ],
+  "annotations": { "list": [] },
+  "description": "CampusTix — booking throughput, latency percentiles, cache hit rate, circuit breaker state",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Booking Throughput (req/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(booking_requests_total{application=\"campustix\"}[1m])",
+          "legendFormat": "{{status}} req/s",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Booking Latency Percentiles",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(booking_processing_seconds_bucket{application=\"campustix\"}[1m]))",
+          "legendFormat": "P50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(booking_processing_seconds_bucket{application=\"campustix\"}[1m]))",
+          "legendFormat": "P95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(booking_processing_seconds_bucket{application=\"campustix\"}[1m]))",
+          "legendFormat": "P99",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Redis Cache Hit Rate",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(cache_gets_total{application=\"campustix\",result=\"hit\"}[5m])) / sum(rate(cache_gets_total{application=\"campustix\"}[5m]))",
+          "legendFormat": "Hit Rate",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0, "max": 1,
+          "thresholds": {
+            "steps": [
+              { "value": 0,    "color": "red"    },
+              { "value": 0.5,  "color": "yellow" },
+              { "value": 0.75, "color": "green"  }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Active Concurrent Bookings",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
+      "targets": [
+        {
+          "expr": "booking_concurrent_active{application=\"campustix\"}",
+          "legendFormat": "In-flight",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "fixedColor": "blue", "mode": "fixed" } }
+      }
+    },
+    {
+      "id": 5,
+      "title": "AI Circuit Breaker State",
+      "description": "0=CLOSED 1=OPEN 2=HALF_OPEN",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 12 },
+      "targets": [
+        {
+          "expr": "resilience4j_circuitbreaker_state{application=\"campustix\",name=\"ai\"}",
+          "legendFormat": "State",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [
+            { "type": "value", "value": "0", "text": "CLOSED ✓" },
+            { "type": "value", "value": "1", "text": "OPEN ⚠"  },
+            { "type": "value", "value": "2", "text": "HALF_OPEN" }
+          ],
+          "thresholds": {
+            "steps": [
+              { "value": 0, "color": "green"  },
+              { "value": 1, "color": "red"    },
+              { "value": 2, "color": "yellow" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Circuit Breaker Call Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "rate(resilience4j_circuitbreaker_calls_total{application=\"campustix\",name=\"ai\"}[1m])",
+          "legendFormat": "{{kind}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Cache Hits vs Misses",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "rate(cache_gets_total{application=\"campustix\",result=\"hit\"}[1m])",
+          "legendFormat": "Hit/s — {{cache}}",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(cache_gets_total{application=\"campustix\",result=\"miss\"}[1m])",
+          "legendFormat": "Miss/s — {{cache}}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Booking Outcome Breakdown",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "increase(booking_requests_total{application=\"campustix\"}[5m])",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["campustix", "performance"],
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "CampusTix Performance",
+  "uid": "campustix-perf-v1",
+  "version": 1
+}

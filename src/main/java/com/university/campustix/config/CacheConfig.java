@@ -5,8 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.university.campustix.metrics.MetricsCacheManager;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.interceptor.CacheErrorHandler;
@@ -26,7 +29,7 @@ import java.time.Duration;
 public class CacheConfig implements CachingConfigurer {
 
     @Bean
-    public RedisCacheManager cacheManager(RedisConnectionFactory factory) {
+    public CacheManager cacheManager(RedisConnectionFactory factory, MeterRegistry meterRegistry) {
         ObjectMapper mapper = JsonMapper.builder()
             .addModule(new JavaTimeModule())
             .activateDefaultTyping(
@@ -46,9 +49,12 @@ public class CacheConfig implements CachingConfigurer {
                     .fromSerializer(new GenericJackson2JsonRedisSerializer(mapper))
             );
 
-        return RedisCacheManager.builder(factory)
+        RedisCacheManager redisCacheManager = RedisCacheManager.builder(factory)
             .cacheDefaults(config)
             .build();
+
+        // Wrap with hit/miss counters → cache.gets{result,cache} in Prometheus
+        return new MetricsCacheManager(redisCacheManager, meterRegistry);
     }
 
     @Override

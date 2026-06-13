@@ -3,6 +3,7 @@ package com.university.campustix.service;
 import com.university.campustix.model.Booking;
 import com.university.campustix.model.Event;
 import com.university.campustix.model.Seat;
+import com.university.campustix.metrics.BookingMetricsService;
 import com.university.campustix.repository.BookingRepository;
 import com.university.campustix.repository.EventRepository;
 import com.university.campustix.repository.SeatRepository;
@@ -30,6 +31,7 @@ public class BookingService {
     private final QRCodeService qrCodeService;
     private final WaitlistService waitlistService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final BookingMetricsService metricsService;
 
     @Async
     @Transactional
@@ -40,20 +42,24 @@ public class BookingService {
     @Async
     @Transactional
     public void processBooking(String email, Long seatId, String name, String paymentIntentId) {
+        metricsService.recordStart();
+        long startNanos = System.nanoTime();
+        String outcome = "error";
         String channel = "/topic/status/" + toChannelSuffix(email);
         try {
             Seat seat = seatRepository.findById(seatId).orElseThrow();
             Event event = eventRepository.findById(seat.getEvent().getId()).orElseThrow();
 
-            // Duplicate booking prevention
+            // Idempotency: reject duplicate bookings for the same user+event
             if (bookingRepository.existsByBuyerEmailAndEvent_IdAndStatusNot(email, event.getId(), "CANCELLED")) {
                 messagingTemplate.convertAndSend(channel,
                     "ERROR: You already have a confirmed ticket for this event.");
+                outcome = "conflict";
                 return;
             }
 
             seat.setStatus("SOLD");
-            seatRepository.save(seat);
+            seatRepository.save(seat); // OptimisticLockException here if seat already taken
 
             String ref = "CT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
             String qrContent = String.format(
@@ -86,10 +92,13 @@ public class BookingService {
             messagingTemplate.convertAndSend(channel,
                 "SUCCESS: Booking confirmed! Ref: " + ref + " | Seat: " + seat.getSeatNumber());
             messagingTemplate.convertAndSend("/topic/seats-update", "refresh");
+            outcome = "success";
 
         } catch (Exception e) {
             messagingTemplate.convertAndSend(channel,
                 "ERROR: Booking failed. The seat may have already been taken.");
+        } finally {
+            metricsService.recordEnd(outcome, System.nanoTime() - startNanos);
         }
     }
 
